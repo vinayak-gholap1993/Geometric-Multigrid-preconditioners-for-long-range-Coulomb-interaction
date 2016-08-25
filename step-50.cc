@@ -26,6 +26,7 @@
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/conditional_ostream.h>
+#include<deal.II/base/parameter_handler.h>
 
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -81,6 +82,8 @@ namespace LA
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include<math.h>
+
 
 namespace Step50
 {
@@ -92,7 +95,7 @@ namespace Step50
   class LaplaceProblem
   {
   public:
-    LaplaceProblem (const unsigned int deg);
+    LaplaceProblem (const unsigned int deg , ParameterHandler & );
     void run ();
 
   private:
@@ -127,10 +130,59 @@ namespace Step50
     MGLevelObject<matrix_t> mg_matrices;
     MGLevelObject<matrix_t> mg_interface_matrices;
     MGConstrainedDoFs                    mg_constrained_dofs;
+
+    ParameterHandler &prm;
+
+    unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
+    double domain_size_left , domain_size_right;
+
+
+
   };
 
+  class ParameterReader: public Subscriptor
+  {
+  public:
+      ParameterReader(ParameterHandler &);
+      void read_parameters(const std::string);
 
+  private:
+      void declare_parameters();
+      ParameterHandler &prm;
+  };
 
+  ParameterReader::ParameterReader(ParameterHandler &paramhandler)
+      :
+      prm(paramhandler)
+  {}
+
+  void ParameterReader::declare_parameters()
+     {
+       prm.enter_subsection("Geometry description");
+      {
+          prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
+                            "The uniform global mesh refinement on the Domain in the power of 4");
+
+          prm.declare_entry("Domain size left","-1",Patterns::Double(),"Left limit of domain size");
+
+          prm.declare_entry("Domain size right","1",Patterns::Double(),"Right limit of domain size");
+      }
+      prm.leave_subsection();
+
+      prm.enter_subsection("Solver and Miscellaneous Data");
+      {
+        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),"Number of Adaptive refinement cycles to be done");
+      }
+      prm.leave_subsection();
+
+      prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),"Polynomial degree of finite elements");
+    }
+
+  void ParameterReader::read_parameters(const std::string parameter_file)
+  {
+      declare_parameters();
+      prm.read_input(parameter_file);
+  }
 
 
   template <int dim>
@@ -147,7 +199,13 @@ namespace Step50
                              const unsigned int              component = 0) const;
   };
 
-
+  template <int dim>
+  class RightHandSide : public Function<dim>
+  {
+  public:
+    RightHandSide () : Function<dim>() {}
+    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  component = 0) ;
+  };
 
   template <int dim>
   double Coefficient<dim>::value (const Point<dim> &p,
@@ -178,11 +236,25 @@ namespace Step50
       values[i] = Coefficient<dim>::value (points[i]);
   }
 
+const double r_c = 0.5;
+const double pi= 3.141592653589793238463;
+
+  template <int dim>
+  double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/)
+  {
+    double radial_distance = 0.0, return_value = 0.0;
+    for (unsigned int i=0; i<dim; ++i)
+    {
+      radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
+    }
+      return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
+    return return_value;
+  }
 
 
 
   template <int dim>
-  LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree)
+  LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param)
     :
     pcout (std::cout,
            (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -192,7 +264,8 @@ namespace Step50
                    parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
     fe (degree),
     mg_dof_handler (triangulation),
-    degree(degree)
+    degree(degree),
+    prm(param)
   {}
 
 
@@ -215,7 +288,7 @@ namespace Step50
     DoFTools::make_hanging_node_constraints (mg_dof_handler, constraints);
 
     typename FunctionMap<dim>::type      dirichlet_boundary;
-    ConstantFunction<dim>                    homogeneous_dirichlet_bc (1.0);
+    ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
     dirichlet_boundary[0] = &homogeneous_dirichlet_bc;
     VectorTools::interpolate_boundary_values (mg_dof_handler,
                                               dirichlet_boundary,
@@ -268,6 +341,8 @@ namespace Step50
                              update_values    |  update_gradients |
                              update_quadrature_points  |  update_JxW_values);
 
+    RightHandSide<dim> right_hand_side;
+
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
 
@@ -302,8 +377,7 @@ namespace Step50
                                        fe_values.shape_grad(j,q_point) *
                                        fe_values.JxW(q_point));
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                10.0 *
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * right_hand_side.RHSvalue (fe_values.quadrature_point (q_point))  *
                                 fe_values.JxW(q_point));
               }
 
@@ -486,7 +560,7 @@ namespace Step50
         solver.solve (system_matrix, solution, system_rhs,
                       preconditioner);
       }
-    pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
+    //pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
 
     constraints.distribute (solution);
   }
@@ -509,14 +583,13 @@ namespace Step50
                                         temp_solution,
                                         estimated_error_per_cell);
 
-    const double threshold = 0.8 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(),
-    												   MPI_COMM_WORLD);
+    const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
     GridRefinement::refine (triangulation, estimated_error_per_cell, threshold);
 
-    //parallel::distributed::GridRefinement::
+   // parallel::distributed::GridRefinement::
     //refine_and_coarsen_fixed_fraction (triangulation,
-    //                                   estimated_error_per_cell,
-    //                                   0.3, 0.0);
+      //                                estimated_error_per_cell,
+        //                             0.3, 0.0);
 
     triangulation.execute_coarsening_and_refinement ();
   }
@@ -580,7 +653,7 @@ namespace Step50
         std::ofstream visit_master (visit_master_filename.c_str());
         data_out.write_visit_record (visit_master, filenames);
 
-        std::cout << "   wrote " << pvtu_master_filename << std::endl;
+        //std::cout << "   wrote " << pvtu_master_filename << std::endl;
 
       }
   }
@@ -590,15 +663,30 @@ namespace Step50
   template <int dim>
   void LaplaceProblem<dim>::run ()
   {
-    for (unsigned int cycle=0; cycle<15; ++cycle)
+      prm.enter_subsection ("Geometry description");
+      domain_size_left     = prm.get_double ("Domain size left");
+      domain_size_right     = prm.get_double ("Domain size right");
+      number_of_global_refinement =prm.get_integer("Number of global refinement");
+      prm.leave_subsection ();
+      std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
+      std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left<<std::endl<<"Right: "<<domain_size_right<<std::endl;
+
+      prm.enter_subsection ("Solver and Miscellaneous Data");
+      number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
+      prm.leave_subsection ();
+      std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
+
+
+
+    for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle) // first mesh size 4^2 = 16*16*16 and then 2 refinements
       {
         pcout << "Cycle " << cycle << ':' << std::endl;
 
         if (cycle == 0)
           {
-            GridGenerator::hyper_cube (triangulation);
+            GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
 
-            triangulation.refine_global (4);
+            triangulation.refine_global (number_of_global_refinement);  //first mesh size 4^2 = 16*16*16
           }
         else
           refine_grid ();
@@ -630,14 +718,24 @@ namespace Step50
 
 int main (int argc, char *argv[])
 {
-  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 3);
 
   try
     {
       using namespace dealii;
       using namespace Step50;
+      deallog.depth_console(2);
 
-      LaplaceProblem<2> laplace_problem(1/*degree*/);
+      ParameterHandler prm;
+      ParameterReader param(prm);
+      param.read_parameters("prmtest.prm");
+
+      const unsigned int Degree = prm.get_integer("Polynomial degree");
+      std::cout<<"Polynomial degree: "<<Degree<<std::endl;
+
+      LaplaceProblem<3> laplace_problem(Degree , prm );
+
+
       laplace_problem.run ();
     }
   catch (std::exception &exc)
