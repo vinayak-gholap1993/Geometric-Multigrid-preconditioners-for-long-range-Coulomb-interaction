@@ -1,6 +1,5 @@
 
-subsection Geometry description
-	
+subsection Geometry	
 	# The uniform global mesh refinement on the Domain in the power of 4
 	set Number of global refinement = 3
 
@@ -11,11 +10,15 @@ subsection Geometry description
 	set Domain size right = 2.5
 end
 
-subsection Solver and Miscellaneous Data
+subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
-	set Number of Adaptive Refinement = 3
+	set Number of Adaptive Refinement = 5
 end
 
 # Polynomial degree of finite elements
 set Polynomial degree = 1
+
+subsection Solver
+	set Problem = step-16
+end	

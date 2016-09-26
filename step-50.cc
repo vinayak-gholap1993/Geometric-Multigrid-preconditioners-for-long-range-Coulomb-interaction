@@ -135,7 +135,7 @@ namespace Step50
 
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     double domain_size_left , domain_size_right;
-
+    std::string Problemtype;
 
 
   };
@@ -158,7 +158,7 @@ namespace Step50
 
   void ParameterReader::declare_parameters()
      {
-       prm.enter_subsection("Geometry description");
+       prm.enter_subsection("Geometry");
       {
           prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
                             "The uniform global mesh refinement on the Domain in the power of 4");
@@ -169,7 +169,14 @@ namespace Step50
       }
       prm.leave_subsection();
 
-      prm.enter_subsection("Solver and Miscellaneous Data");
+
+      prm.enter_subsection("Solver");
+      {
+        prm.declare_entry ("Problem","two charges",Patterns::Selection("step-16 | two charges"),"Problem definition for RHS Function");
+      }
+      prm.leave_subsection();
+
+      prm.enter_subsection("Misc");
       {
         prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),"Number of Adaptive refinement cycles to be done");
       }
@@ -354,6 +361,8 @@ const double pi= 3.141592653589793238463;
     const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
 
+
+
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
     endc = mg_dof_handler.end();
@@ -377,7 +386,18 @@ const double pi= 3.141592653589793238463;
                                        fe_values.shape_grad(j,q_point) *
                                        fe_values.JxW(q_point));
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * right_hand_side.RHSvalue (fe_values.quadrature_point (q_point))  *
+                prm.enter_subsection("Solver");
+
+                std_cxx11::shared_ptr<Function<dim>> RhsFunc(prm.get("Problem"));
+                if(*RhsFunc == "step-16")
+                  *RhsFunc = 10.0;
+                else
+                    *RhsFunc = right_hand_side.RHSvalue (fe_values.quadrature_point (q_point));
+                prm.leave_subsection();
+                //std::cout<<"Problem type is: "<<Problemtype<<std::endl;
+                std::cout<<"RhsFunc is: "<<*RhsFunc<<std::endl;
+
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * *RhsFunc    /* right_hand_side.RHSvalue (fe_values.quadrature_point (q_point)) */ *
                                 fe_values.JxW(q_point));
               }
 
@@ -663,7 +683,7 @@ const double pi= 3.141592653589793238463;
   template <int dim>
   void LaplaceProblem<dim>::run ()
   {
-      prm.enter_subsection ("Geometry description");
+      prm.enter_subsection ("Geometry");
       domain_size_left     = prm.get_double ("Domain size left");
       domain_size_right     = prm.get_double ("Domain size right");
       number_of_global_refinement =prm.get_integer("Number of global refinement");
@@ -671,7 +691,17 @@ const double pi= 3.141592653589793238463;
       std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
       std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left<<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
-      prm.enter_subsection ("Solver and Miscellaneous Data");
+     /*
+      prm.enter_subsection("Solver");
+      Problemtype = prm.get("Problem");
+      //if(Problemtype == "step-16")
+        //  RhsFunc = 10.0;
+      prm.leave_subsection();
+      std::cout<<"Problem type is: "<<Problemtype<<std::endl;
+      std::cout<<"RhsFunc is: "<<RhsFunc<<std::endl;
+      */
+
+      prm.enter_subsection ("Misc");
       number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
       prm.leave_subsection ();
       std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
@@ -733,7 +763,7 @@ int main (int argc, char *argv[])
       const unsigned int Degree = prm.get_integer("Polynomial degree");
       std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
-      LaplaceProblem<3> laplace_problem(Degree , prm );
+      LaplaceProblem<2> laplace_problem(Degree , prm );
 
 
       laplace_problem.run ();
