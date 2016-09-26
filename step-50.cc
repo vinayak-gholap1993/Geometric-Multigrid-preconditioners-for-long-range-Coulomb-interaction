@@ -134,7 +134,7 @@ namespace Step50
     ParameterHandler &prm;
 
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
-    double domain_size_left , domain_size_right;
+    double domain_size_left , domain_size_right,R1;
     std::string Problemtype;
 
 
@@ -388,16 +388,17 @@ const double pi= 3.141592653589793238463;
 
                 prm.enter_subsection("Solver");
 
-                std_cxx11::shared_ptr<Function<dim>> RhsFunc(prm.get("Problem"));
-                if(*RhsFunc == "step-16")
-                  *RhsFunc = 10.0;
+               // std_cxx11::shared_ptr<Function<dim>> RhsFunc(prm.get("Problem"));
+                Problemtype = prm.get("Problem");
+                if((Problemtype) == "step-16")
+                  R1 = 10.0;
                 else
-                    *RhsFunc = right_hand_side.RHSvalue (fe_values.quadrature_point (q_point));
+                    R1 = right_hand_side.RHSvalue (fe_values.quadrature_point (q_point));
                 prm.leave_subsection();
                 //std::cout<<"Problem type is: "<<Problemtype<<std::endl;
-                std::cout<<"RhsFunc is: "<<*RhsFunc<<std::endl;
+               // std::cout<<"RhsFunc is: "<<R1<<std::endl;
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * *RhsFunc    /* right_hand_side.RHSvalue (fe_values.quadrature_point (q_point)) */ *
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * R1    /* right_hand_side.RHSvalue (fe_values.quadrature_point (q_point)) */ *
                                 fe_values.JxW(q_point));
               }
 
@@ -740,7 +741,7 @@ const double pi= 3.141592653589793238463;
         assemble_multigrid ();
 
         solve ();
-        output_results (cycle);
+        //output_results (cycle);
       }
   }
 }
@@ -763,7 +764,7 @@ int main (int argc, char *argv[])
       const unsigned int Degree = prm.get_integer("Polynomial degree");
       std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
-      LaplaceProblem<2> laplace_problem(Degree , prm );
+      LaplaceProblem<3> laplace_problem(Degree , prm );
 
 
       laplace_problem.run ();

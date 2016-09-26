@@ -1,7 +1,7 @@
 
 subsection Geometry	
 	# The uniform global mesh refinement on the Domain in the power of 4
-	set Number of global refinement = 3
+	set Number of global refinement = 4
 
 	#Left limit of domain size
 	set Domain size left = -2.5
@@ -13,12 +13,12 @@ end
 subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
-	set Number of Adaptive Refinement = 5
+	set Number of Adaptive Refinement = 4
 end
 
 # Polynomial degree of finite elements
 set Polynomial degree = 1
 
 subsection Solver
-	set Problem = step-16
+	set Problem = two charges
 end	
