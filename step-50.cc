@@ -163,26 +163,31 @@ namespace Step50
           prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
                             "The uniform global mesh refinement on the Domain in the power of 4");
 
-          prm.declare_entry("Domain size left","-1",Patterns::Double(),"Left limit of domain size");
+          prm.declare_entry("Domain size left","-1",Patterns::Double(),
+                            "Left limit of domain size");
 
-          prm.declare_entry("Domain size right","1",Patterns::Double(),"Right limit of domain size");
+          prm.declare_entry("Domain size right","1",Patterns::Double(),
+                            "Right limit of domain size");
       }
       prm.leave_subsection();
 
 
       prm.enter_subsection("Solver");
       {
-        prm.declare_entry ("Problem","two charges",Patterns::Selection("step-16 | two charges"),"Problem definition for RHS Function");
+        prm.declare_entry ("Problem","two charges",Patterns::Selection("step-16 | two charges"),
+                           "Problem definition for RHS Function");
       }
       prm.leave_subsection();
 
       prm.enter_subsection("Misc");
       {
-        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),"Number of Adaptive refinement cycles to be done");
+        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),
+                           "Number of Adaptive refinement cycles to be done");
       }
       prm.leave_subsection();
 
-      prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),"Polynomial degree of finite elements");
+      prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),
+                        "Polynomial degree of finite elements");
     }
 
   void ParameterReader::read_parameters(const std::string parameter_file)
@@ -254,7 +259,8 @@ const double pi= 3.141592653589793238463;
     {
       radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
     }
-      return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
+      return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
+                      exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
     return return_value;
   }
 
@@ -398,7 +404,8 @@ const double pi= 3.141592653589793238463;
                 //std::cout<<"Problem type is: "<<Problemtype<<std::endl;
                // std::cout<<"RhsFunc is: "<<R1<<std::endl;
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * R1    /* right_hand_side.RHSvalue (fe_values.quadrature_point (q_point)) */ *
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * R1
+                                /* right_hand_side.RHSvalue (fe_values.quadrature_point (q_point)) */ *
                                 fe_values.JxW(q_point));
               }
 
@@ -690,7 +697,8 @@ const double pi= 3.141592653589793238463;
       number_of_global_refinement =prm.get_integer("Number of global refinement");
       prm.leave_subsection ();
       std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
-      std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left<<std::endl<<"Right: "<<domain_size_right<<std::endl;
+      std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
+              <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
      /*
       prm.enter_subsection("Solver");
@@ -709,7 +717,8 @@ const double pi= 3.141592653589793238463;
 
 
 
-    for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle) // first mesh size 4^2 = 16*16*16 and then 2 refinements
+    for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
+            // first mesh size 4^2 = 16*16*16 and then 2 refinements
       {
         pcout << "Cycle " << cycle << ':' << std::endl;
 
