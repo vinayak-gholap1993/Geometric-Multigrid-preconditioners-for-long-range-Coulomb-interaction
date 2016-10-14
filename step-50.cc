@@ -83,6 +83,7 @@ namespace LA
 #include <fstream>
 #include <sstream>
 #include<math.h>
+#include<memory>
 
 
 namespace Step50
@@ -134,11 +135,33 @@ namespace Step50
     ParameterHandler &prm;
 
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
-    double domain_size_left , domain_size_right,R1;
+    double domain_size_left , domain_size_right;
     std::string Problemtype;
 
 
   };
+
+
+
+
+  template <int dim>
+  class two_charges: public Function<dim>
+  {
+  public:
+      two_charges():Function<dim>(){}
+      virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) ;
+
+  };
+
+  template <int dim>
+  class step_16: public Function<dim>
+  {
+  public:
+      step_16():Function<dim>(){}
+      virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) ;
+
+  };
+
 
   class ParameterReader: public Subscriptor
   {
@@ -174,7 +197,7 @@ namespace Step50
 
       prm.enter_subsection("Solver");
       {
-        prm.declare_entry ("Problem","two charges",Patterns::Selection("step-16 | two charges"),
+        prm.declare_entry ("Problem","two charges",Patterns::Selection("step_16 | two charges"),
                            "Problem definition for RHS Function");
       }
       prm.leave_subsection();
@@ -211,6 +234,7 @@ namespace Step50
                              const unsigned int              component = 0) const;
   };
 
+  /*
   template <int dim>
   class RightHandSide : public Function<dim>
   {
@@ -218,6 +242,7 @@ namespace Step50
     RightHandSide () : Function<dim>() {}
     virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  component = 0) ;
   };
+  */
 
   template <int dim>
   double Coefficient<dim>::value (const Point<dim> &p,
@@ -252,7 +277,7 @@ const double r_c = 0.5;
 const double pi= 3.141592653589793238463;
 
   template <int dim>
-  double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/)
+  double two_charges<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/)
   {
     double radial_distance = 0.0, return_value = 0.0;
     for (unsigned int i=0; i<dim; ++i)
@@ -262,6 +287,15 @@ const double pi= 3.141592653589793238463;
       return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
                       exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
     return return_value;
+  }
+
+  template <int dim>
+  double step_16<dim>::RHSvalue (const Point<dim> &p, const unsigned int)
+  {
+      double return_value = 10.0;
+
+      return return_value;
+
   }
 
 
@@ -354,7 +388,7 @@ const double pi= 3.141592653589793238463;
                              update_values    |  update_gradients |
                              update_quadrature_points  |  update_JxW_values);
 
-    RightHandSide<dim> right_hand_side;
+   // RightHandSide<dim> right_hand_side;
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
@@ -367,7 +401,8 @@ const double pi= 3.141592653589793238463;
     const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
 
-
+    //double RHS = 0.0;
+    std_cxx11::shared_ptr<Function<dim>> RhsFunc = nullptr;
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -383,6 +418,22 @@ const double pi= 3.141592653589793238463;
           coefficient.value_list (fe_values.get_quadrature_points(),
                                   coefficient_values);
 
+
+
+          if(Problemtype== "step_16")
+          {
+               RhsFunc= std::make_shared<Function<dim>> step_16<dim> ;
+
+          }
+          else
+          {
+             // RhsFunc(new two_charges<dim> ); //.((right_hand_side.RHSvalue (fe_values.quadrature_point (q_point))));
+
+          }
+
+
+
+
           for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
             for (unsigned int i=0; i<dofs_per_cell; ++i)
               {
@@ -392,21 +443,12 @@ const double pi= 3.141592653589793238463;
                                        fe_values.shape_grad(j,q_point) *
                                        fe_values.JxW(q_point));
 
-                prm.enter_subsection("Solver");
 
-               // std_cxx11::shared_ptr<Function<dim>> RhsFunc(prm.get("Problem"));
-                Problemtype = prm.get("Problem");
-                if((Problemtype) == "step-16")
-                  R1 = 10.0;
-                else
-                    R1 = right_hand_side.RHSvalue (fe_values.quadrature_point (q_point));
-                prm.leave_subsection();
-                //std::cout<<"Problem type is: "<<Problemtype<<std::endl;
-               // std::cout<<"RhsFunc is: "<<R1<<std::endl;
+                //RHS = RhsFunc->RHSvalue(fe_values.quadrature_point (q_point));
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * R1
-                                /* right_hand_side.RHSvalue (fe_values.quadrature_point (q_point)) */ *
-                                fe_values.JxW(q_point));
+
+
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * RhsFunc->RHSvalue(fe_values.quadrature_point (q_point)) * fe_values.JxW(q_point));
               }
 
           cell->get_dof_indices (local_dof_indices);
@@ -700,15 +742,10 @@ const double pi= 3.141592653589793238463;
       std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
               <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
-     /*
       prm.enter_subsection("Solver");
-      Problemtype = prm.get("Problem");
-      //if(Problemtype == "step-16")
-        //  RhsFunc = 10.0;
+      Problemtype= (prm.get("Problem"));
       prm.leave_subsection();
-      std::cout<<"Problem type is: "<<Problemtype<<std::endl;
-      std::cout<<"RhsFunc is: "<<RhsFunc<<std::endl;
-      */
+      std::cout<<"Problem type is:   " << Problemtype<<std::endl;
 
       prm.enter_subsection ("Misc");
       number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
@@ -726,7 +763,7 @@ const double pi= 3.141592653589793238463;
           {
             GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
 
-            triangulation.refine_global (number_of_global_refinement);  //first mesh size 4^2 = 16*16*16
+            triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
           }
         else
           refine_grid ();
@@ -773,7 +810,7 @@ int main (int argc, char *argv[])
       const unsigned int Degree = prm.get_integer("Polynomial degree");
       std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
-      LaplaceProblem<3> laplace_problem(Degree , prm );
+      LaplaceProblem<2> laplace_problem(Degree , prm );
 
 
       laplace_problem.run ();

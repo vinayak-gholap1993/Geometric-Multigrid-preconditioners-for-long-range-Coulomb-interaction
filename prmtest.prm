@@ -26,5 +26,5 @@ set Polynomial degree = 1
 # preconditioners, problem type and solver input variables
 
 subsection Solver
-	set Problem = two charges
+	set Problem = step_16
 end	
