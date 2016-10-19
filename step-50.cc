@@ -234,15 +234,7 @@ namespace Step50
                              const unsigned int              component = 0) const;
   };
 
-  /*
-  template <int dim>
-  class RightHandSide : public Function<dim>
-  {
-  public:
-    RightHandSide () : Function<dim>() {}
-    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  component = 0) ;
-  };
-  */
+
 
   template <int dim>
   double Coefficient<dim>::value (const Point<dim> &p,
@@ -388,7 +380,6 @@ const double pi= 3.141592653589793238463;
                              update_values    |  update_gradients |
                              update_quadrature_points  |  update_JxW_values);
 
-   // RightHandSide<dim> right_hand_side;
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
@@ -401,7 +392,7 @@ const double pi= 3.141592653589793238463;
     const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
 
-    //double RHS = 0.0;
+
     std_cxx11::shared_ptr<Function<dim>> RhsFunc = nullptr;
 
     typename DoFHandler<dim>::active_cell_iterator
@@ -422,12 +413,12 @@ const double pi= 3.141592653589793238463;
 
           if(Problemtype== "step_16")
           {
-               RhsFunc= std::make_shared<Function<dim>> step_16<dim> ;
+               RhsFunc = std_cxx11::make_shared<Function<dim>> (step_16<dim>()) ;
 
           }
           else
           {
-             // RhsFunc(new two_charges<dim> ); //.((right_hand_side.RHSvalue (fe_values.quadrature_point (q_point))));
+             RhsFunc = std_cxx11::make_shared<Function<dim>> (two_charges<dim>());
 
           }
 
@@ -444,11 +435,8 @@ const double pi= 3.141592653589793238463;
                                        fe_values.JxW(q_point));
 
 
-                //RHS = RhsFunc->RHSvalue(fe_values.quadrature_point (q_point));
 
-
-
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * RhsFunc->RHSvalue(fe_values.quadrature_point (q_point)) * fe_values.JxW(q_point));
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * (RhsFunc->RHSvalue(fe_values.quadrature_point (q_point)) )* fe_values.JxW(q_point));
               }
 
           cell->get_dof_indices (local_dof_indices);
