@@ -92,116 +92,116 @@ namespace LA
 
 namespace Step16
 {
-    using namespace dealii;
+  using namespace dealii;
 
-    template <int dim>
-    class RightHandSide : public Function<dim>
-    {
-        public:
-                RightHandSide():Function<dim>() {}
-                virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
-    };
+  template <int dim>
+  class RightHandSide : public Function<dim>
+  {
+  public:
+    RightHandSide():Function<dim>() {}
+    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
+  };
 
-    template <int dim>
-    class Coefficient : public Function<dim>
-    {
-        public:
-                Coefficient () : Function<dim>() {}
+  template <int dim>
+  class Coefficient : public Function<dim>
+  {
+  public:
+    Coefficient () : Function<dim>() {}
 
-                virtual double value (const Point<dim>   &p,
-                              const unsigned int  component = 0) const;
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const;
 
 
-                virtual void value_list (const std::vector<Point<dim> > &points,
-                                 std::vector<double>            &values,
-                                 const unsigned int              component = 0) const;
+    virtual void value_list (const std::vector<Point<dim> > &points,
+                             std::vector<double>            &values,
+                             const unsigned int              component = 0) const;
 
-    };
+  };
 
-    template <int dim>
-    double RightHandSide<dim>::RHSvalue (const Point<dim> &p, const unsigned int /*component = 0*/) const
-    {
-        double return_value = 10.0;
+  template <int dim>
+  double RightHandSide<dim>::RHSvalue (const Point<dim> &p, const unsigned int /*component = 0*/) const
+  {
+    double return_value = 10.0;
 
-        return return_value;
+    return return_value;
 
-    }
+  }
 
-    template <int dim>
-    double Coefficient<dim>::value (const Point<dim> &p,
-                                    const unsigned int) const
-                                    {
-                                        MeshWorker::DoFInfo<dim> dinfo;
-                                        AssertDimension (dinfo.n_matrices(), 1);
+  template <int dim>
+  double Coefficient<dim>::value (const Point<dim> &p,
+                                  const unsigned int) const
+  {
+    MeshWorker::DoFInfo<dim> dinfo;
+    AssertDimension (dinfo.n_matrices(), 1);
 
-                                        if (dinfo.cell->center()(0) > 0.)
-                                          return 0.1;
-                                        else
-                                          return 1;
+    if (dinfo.cell->center()(0) > 0.)
+      return 0.1;
+    else
+      return 1;
 
-                                    }
+  }
 
-    template <int dim>
-    void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
-                                       std::vector<double>            &values,
-                                       const unsigned int              component) const
-                                        {
-                                          const unsigned int n_points = points.size();
+  template <int dim>
+  void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
+                                     std::vector<double>            &values,
+                                     const unsigned int              component) const
+  {
+    const unsigned int n_points = points.size();
 
-                                          Assert (values.size() == n_points,
-                                                  ExcDimensionMismatch (values.size(), n_points));
+    Assert (values.size() == n_points,
+            ExcDimensionMismatch (values.size(), n_points));
 
-                                          Assert (component == 0,
-                                                  ExcIndexRange (component, 0, 1));
+    Assert (component == 0,
+            ExcIndexRange (component, 0, 1));
 
-                                          for (unsigned int i=0; i<n_points; ++i)
-                                            values[i] = Coefficient<dim>::value (points[i]);
-                                        }
+    for (unsigned int i=0; i<n_points; ++i)
+      values[i] = Coefficient<dim>::value (points[i]);
+  }
 
 }
 
 
 namespace Step50
-    {
-        template<int dim>
-        using Step50::Coefficient<dim>;
+{
+  template<int dim>
+  using Step50::Coefficient<dim>;
 
-    }
+}
 
 
 namespace Gaussiancharges
-    {
-        using namespace dealii;
-        using namespace Step50;
+{
+  using namespace dealii;
+  using namespace Step50;
 
-        const double r_c = 0.5;
-        const double pi= 3.141592653589793238463;
+  const double r_c = 0.5;
+  const double pi= 3.141592653589793238463;
 
-        template <int dim>
-        class RightHandSide : public Function<dim>
-        {
-            public:
-                    RightHandSide():Function<dim>() {}
-                    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
-        };
+  template <int dim>
+  class RightHandSide : public Function<dim>
+  {
+  public:
+    RightHandSide():Function<dim>() {}
+    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
+  };
 
-        //template<int dim>
-        using Step50::Coefficient<dim>;
+  //template<int dim>
+  using Step50::Coefficient<dim>;
 
-        template <int dim>
-        double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/) const
-        {
-          double radial_distance = 0.0, return_value = 0.0;
-          for (unsigned int i=0; i<dim; ++i)
-          {
-            radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
-          }
-            return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
-                            exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
-          return return_value;
-        }
+  template <int dim>
+  double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/) const
+  {
+    double radial_distance = 0.0, return_value = 0.0;
+    for (unsigned int i=0; i<dim; ++i)
+      {
+        radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
+      }
+    return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
+                    exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
+    return return_value;
+  }
 
-    }
+}
 
 /*
 namespace YetAnotherProblem
@@ -228,7 +228,7 @@ namespace Step50
   class LaplaceProblem
   {
   public:
-    LaplaceProblem (const unsigned int deg , ParameterHandler & , std::string &);
+    LaplaceProblem (const unsigned int deg , ParameterHandler &, std::string &);
     void run ();
 
   private:
@@ -280,57 +280,57 @@ namespace Step50
   class ParameterReader: public Subscriptor
   {
   public:
-      ParameterReader(ParameterHandler &);
-      void read_parameters(const std::string);
+    ParameterReader(ParameterHandler &);
+    void read_parameters(const std::string);
 
   private:
-      void declare_parameters();
-      ParameterHandler &prm;
+    void declare_parameters();
+    ParameterHandler &prm;
   };
 
   ParameterReader::ParameterReader(ParameterHandler &paramhandler)
-      :
-      prm(paramhandler)
+    :
+    prm(paramhandler)
   {}
 
   void ParameterReader::declare_parameters()
-     {
-       prm.enter_subsection("Geometry");
-      {
-          prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
-                            "The uniform global mesh refinement on the Domain in the power of 4");
+  {
+    prm.enter_subsection("Geometry");
+    {
+      prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
+                        "The uniform global mesh refinement on the Domain in the power of 4");
 
-          prm.declare_entry("Domain limit left","-1",Patterns::Double(),
-                            "Left limit of domain");
+      prm.declare_entry("Domain limit left","-1",Patterns::Double(),
+                        "Left limit of domain");
 
-          prm.declare_entry("Domain limit right","1",Patterns::Double(),
-                            "Right limit of domain");
-      }
-      prm.leave_subsection();
-
-
-      prm.enter_subsection("Problem Selection");
-      {
-        prm.declare_entry ("Problem","two charges",Patterns::Selection("Step16 | two charges"),
-                           "Problem definition for RHS Function");
-      }
-      prm.leave_subsection();
-
-      prm.enter_subsection("Misc");
-      {
-        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),
-                           "Number of Adaptive refinement cycles to be done");
-      }
-      prm.leave_subsection();
-
-      prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),
-                        "Polynomial degree of finite elements");
+      prm.declare_entry("Domain limit right","1",Patterns::Double(),
+                        "Right limit of domain");
     }
+    prm.leave_subsection();
+
+
+    prm.enter_subsection("Problem Selection");
+    {
+      prm.declare_entry ("Problem","two charges",Patterns::Selection("Step16 | two charges"),
+                         "Problem definition for RHS Function");
+    }
+    prm.leave_subsection();
+
+    prm.enter_subsection("Misc");
+    {
+      prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),
+                         "Number of Adaptive refinement cycles to be done");
+    }
+    prm.leave_subsection();
+
+    prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),
+                      "Polynomial degree of finite elements");
+  }
 
   void ParameterReader::read_parameters(const std::string parameter_file)
   {
-      declare_parameters();
-      prm.read_input(parameter_file);
+    declare_parameters();
+    prm.read_input(parameter_file);
   }
 
 
@@ -391,11 +391,11 @@ namespace Step50
   LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype)
     :
     pcout (std::cout,
-           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
-            == 0)),
+          (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
+           == 0)),
     triangulation (MPI_COMM_WORLD,Triangulation<dim>::
-                   limit_level_difference_at_vertices,
-                   parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
+                  limit_level_difference_at_vertices,
+                  parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
     fe (degree),
     mg_dof_handler (triangulation),
     degree(degree),
@@ -403,14 +403,14 @@ namespace Step50
     Problemtype(Problemtype)
 
   {
-      if(Problemtype== "Step16")
+    if (Problemtype== "Step16")
       {
-           RhsFunc = std_cxx11::make_shared<Function<dim>> (Step16::RightHandSide<dim>()) ;
+        RhsFunc = std_cxx11::make_shared<Function<dim>> (Step16::RightHandSide<dim>()) ;
 
       }
-      else
+    else
       {
-         RhsFunc = std_cxx11::make_shared<Function<dim>> (Gaussiancharges::RightHandSide<dim>());
+        RhsFunc = std_cxx11::make_shared<Function<dim>> (Gaussiancharges::RightHandSide<dim>());
 
       }
   }
@@ -605,7 +605,7 @@ namespace Step50
           cell->get_mg_dof_indices (local_dof_indices);
 
           boundary_constraints[cell->level()].distribute_local_to_global (cell_matrix,local_dof_indices,
-        		  mg_matrices[cell->level()]);
+              mg_matrices[cell->level()]);
 
 
           const IndexSet &interface_dofs_on_level
@@ -741,10 +741,10 @@ namespace Step50
     const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
     GridRefinement::refine (triangulation, estimated_error_per_cell, threshold);
 
-   // parallel::distributed::GridRefinement::
+    // parallel::distributed::GridRefinement::
     //refine_and_coarsen_fixed_fraction (triangulation,
-      //                                estimated_error_per_cell,
-        //                             0.3, 0.0);
+    //                                estimated_error_per_cell,
+    //                             0.3, 0.0);
 
     triangulation.execute_coarsening_and_refinement ();
   }
@@ -818,31 +818,31 @@ namespace Step50
   template <int dim>
   void LaplaceProblem<dim>::run ()
   {
-      prm.enter_subsection ("Geometry");
-      domain_size_left     = prm.get_double ("Domain limit left");
-      domain_size_right     = prm.get_double ("Domain limit right");
-      number_of_global_refinement =prm.get_integer("Number of global refinement");
-      prm.leave_subsection ();
-      std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
-      std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
-              <<std::endl<<"Right: "<<domain_size_right<<std::endl;
+    prm.enter_subsection ("Geometry");
+    domain_size_left     = prm.get_double ("Domain limit left");
+    domain_size_right     = prm.get_double ("Domain limit right");
+    number_of_global_refinement =prm.get_integer("Number of global refinement");
+    prm.leave_subsection ();
+    std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
+    std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
+             <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
-      /*
-      prm.enter_subsection("Problem Selection");
-      Problemtype= (prm.get("Problem"));
-      prm.leave_subsection();
-      std::cout<<"Problem type is:   " << Problemtype<<std::endl;
-      */
+    /*
+    prm.enter_subsection("Problem Selection");
+    Problemtype= (prm.get("Problem"));
+    prm.leave_subsection();
+    std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+    */
 
-      prm.enter_subsection ("Misc");
-      number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
-      prm.leave_subsection ();
-      std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
+    prm.enter_subsection ("Misc");
+    number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
+    prm.leave_subsection ();
+    std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
 
 
 
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
-            // first mesh size 4^2 = 16*16*16 and then 2 refinements
+      // first mesh size 4^2 = 16*16*16 and then 2 refinements
       {
         pcout << "Cycle " << cycle << ':' << std::endl;
 
