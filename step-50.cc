@@ -161,18 +161,10 @@ namespace Step16
 }
 
 
-namespace Step50
-{
-  template<int dim>
-  using Step50::Coefficient<dim>;
-
-}
-
-
 namespace Gaussiancharges
 {
   using namespace dealii;
-  using namespace Step50;
+  //using namespace Step50;
 
   const double r_c = 0.5;
   const double pi= 3.141592653589793238463;
@@ -185,8 +177,22 @@ namespace Gaussiancharges
     virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
   };
 
-  //template<int dim>
-  using Step50::Coefficient<dim>;
+  template <int dim>
+  class Coefficient : public Function<dim>
+  {
+  public:
+    Coefficient () : Function<dim>() {}
+
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const;
+
+
+    virtual void value_list (const std::vector<Point<dim> > &points,
+                             std::vector<double>            &values,
+                             const unsigned int              component = 0) const;
+
+  };
+
 
   template <int dim>
   double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/) const
@@ -196,9 +202,37 @@ namespace Gaussiancharges
       {
         radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
       }
-    return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
-                    exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
+    return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5)) ;
     return return_value;
+  }
+
+  template <int dim>
+  double Coefficient<dim>::value (const Point<dim> &p,
+                                  const unsigned int) const
+  {
+    if (p.square() < 0.5*0.5)
+      return 5;
+    else
+      return 1;
+  }
+
+
+
+  template <int dim>
+  void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
+                                     std::vector<double>            &values,
+                                     const unsigned int              component) const
+  {
+    const unsigned int n_points = points.size();
+
+    Assert (values.size() == n_points,
+            ExcDimensionMismatch (values.size(), n_points));
+
+    Assert (component == 0,
+            ExcIndexRange (component, 0, 1));
+
+    for (unsigned int i=0; i<n_points; ++i)
+      values[i] = Coefficient<dim>::value (points[i]);
   }
 
 }
