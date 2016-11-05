@@ -66,6 +66,9 @@
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/mg_matrix.h>
 
+#include <deal.II/meshworker/dof_info.h>
+#include <deal.II/meshworker/integration_info.h>
+#include <deal.II/meshworker/loop.h>
 
 #include <deal.II/lac/generic_linear_algebra.h>
 
@@ -86,6 +89,135 @@ namespace LA
 #include<memory>
 
 
+
+namespace Step16
+{
+    using namespace dealii;
+
+    template <int dim>
+    class RightHandSide : public Function<dim>
+    {
+        public:
+                RightHandSide():Function<dim>() {}
+                virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
+    };
+
+    template <int dim>
+    class Coefficient : public Function<dim>
+    {
+        public:
+                Coefficient () : Function<dim>() {}
+
+                virtual double value (const Point<dim>   &p,
+                              const unsigned int  component = 0) const;
+
+
+                virtual void value_list (const std::vector<Point<dim> > &points,
+                                 std::vector<double>            &values,
+                                 const unsigned int              component = 0) const;
+
+    };
+
+    template <int dim>
+    double RightHandSide<dim>::RHSvalue (const Point<dim> &p, const unsigned int /*component = 0*/) const
+    {
+        double return_value = 10.0;
+
+        return return_value;
+
+    }
+
+    template <int dim>
+    double Coefficient<dim>::value (const Point<dim> &p,
+                                    const unsigned int) const
+                                    {
+                                        MeshWorker::DoFInfo<dim> dinfo;
+                                        AssertDimension (dinfo.n_matrices(), 1);
+
+                                        if (dinfo.cell->center()(0) > 0.)
+                                          return 0.1;
+                                        else
+                                          return 1;
+
+                                    }
+
+    template <int dim>
+    void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
+                                       std::vector<double>            &values,
+                                       const unsigned int              component) const
+                                        {
+                                          const unsigned int n_points = points.size();
+
+                                          Assert (values.size() == n_points,
+                                                  ExcDimensionMismatch (values.size(), n_points));
+
+                                          Assert (component == 0,
+                                                  ExcIndexRange (component, 0, 1));
+
+                                          for (unsigned int i=0; i<n_points; ++i)
+                                            values[i] = Coefficient<dim>::value (points[i]);
+                                        }
+
+}
+
+
+namespace Step50
+    {
+        template<int dim>
+        using Step50::Coefficient<dim>;
+
+    }
+
+
+namespace Gaussiancharges
+    {
+        using namespace dealii;
+        using namespace Step50;
+
+        const double r_c = 0.5;
+        const double pi= 3.141592653589793238463;
+
+        template <int dim>
+        class RightHandSide : public Function<dim>
+        {
+            public:
+                    RightHandSide():Function<dim>() {}
+                    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
+        };
+
+        //template<int dim>
+        using Step50::Coefficient<dim>;
+
+        template <int dim>
+        double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/) const
+        {
+          double radial_distance = 0.0, return_value = 0.0;
+          for (unsigned int i=0; i<dim; ++i)
+          {
+            radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
+          }
+            return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
+                            exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
+          return return_value;
+        }
+
+    }
+
+/*
+namespace YetAnotherProblem
+        {
+            template <int dim>
+            class RightHandSide : public Function<dim>
+            {
+
+            }
+        }
+*/
+
+//  Step16::RightHandSide<dim>
+//  TwoCharges::RightHandSide<dim>
+
+
 namespace Step50
 {
   using namespace dealii;
@@ -96,7 +228,7 @@ namespace Step50
   class LaplaceProblem
   {
   public:
-    LaplaceProblem (const unsigned int deg , ParameterHandler & );
+    LaplaceProblem (const unsigned int deg , ParameterHandler & , std::string &);
     void run ();
 
   private:
@@ -137,30 +269,12 @@ namespace Step50
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     double domain_size_left , domain_size_right;
     std::string Problemtype;
-
-
-  };
-
-
-
-
-  template <int dim>
-  class two_charges: public Function<dim>
-  {
-  public:
-      two_charges():Function<dim>(){}
-      virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) ;
+    std_cxx11::shared_ptr<Function<dim>> RhsFunc = nullptr;
 
   };
 
-  template <int dim>
-  class step_16: public Function<dim>
-  {
-  public:
-      step_16():Function<dim>(){}
-      virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) ;
 
-  };
+
 
 
   class ParameterReader: public Subscriptor
@@ -186,18 +300,18 @@ namespace Step50
           prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
                             "The uniform global mesh refinement on the Domain in the power of 4");
 
-          prm.declare_entry("Domain size left","-1",Patterns::Double(),
-                            "Left limit of domain size");
+          prm.declare_entry("Domain limit left","-1",Patterns::Double(),
+                            "Left limit of domain");
 
-          prm.declare_entry("Domain size right","1",Patterns::Double(),
-                            "Right limit of domain size");
+          prm.declare_entry("Domain limit right","1",Patterns::Double(),
+                            "Right limit of domain");
       }
       prm.leave_subsection();
 
 
-      prm.enter_subsection("Solver");
+      prm.enter_subsection("Problem Selection");
       {
-        prm.declare_entry ("Problem","two charges",Patterns::Selection("step_16 | two charges"),
+        prm.declare_entry ("Problem","two charges",Patterns::Selection("Step16 | two charges"),
                            "Problem definition for RHS Function");
       }
       prm.leave_subsection();
@@ -265,35 +379,16 @@ namespace Step50
       values[i] = Coefficient<dim>::value (points[i]);
   }
 
-const double r_c = 0.5;
-const double pi= 3.141592653589793238463;
 
-  template <int dim>
-  double two_charges<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/)
-  {
-    double radial_distance = 0.0, return_value = 0.0;
-    for (unsigned int i=0; i<dim; ++i)
-    {
-      radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
-    }
-      return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) -
-                      exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
-    return return_value;
-  }
 
-  template <int dim>
-  double step_16<dim>::RHSvalue (const Point<dim> &p, const unsigned int)
-  {
-      double return_value = 10.0;
 
-      return return_value;
 
-  }
+
 
 
 
   template <int dim>
-  LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param)
+  LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype)
     :
     pcout (std::cout,
            (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -304,8 +399,21 @@ const double pi= 3.141592653589793238463;
     fe (degree),
     mg_dof_handler (triangulation),
     degree(degree),
-    prm(param)
-  {}
+    prm(param),
+    Problemtype(Problemtype)
+
+  {
+      if(Problemtype== "Step16")
+      {
+           RhsFunc = std_cxx11::make_shared<Function<dim>> (Step16::RightHandSide<dim>()) ;
+
+      }
+      else
+      {
+         RhsFunc = std_cxx11::make_shared<Function<dim>> (Gaussiancharges::RightHandSide<dim>());
+
+      }
+  }
 
 
 
@@ -393,7 +501,10 @@ const double pi= 3.141592653589793238463;
     std::vector<double>    coefficient_values (n_q_points);
 
 
-    std_cxx11::shared_ptr<Function<dim>> RhsFunc = nullptr;
+    // move it to the member of the class and initialize in constructor
+
+
+
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -410,21 +521,6 @@ const double pi= 3.141592653589793238463;
                                   coefficient_values);
 
 
-
-          if(Problemtype== "step_16")
-          {
-               RhsFunc = std_cxx11::make_shared<Function<dim>> (step_16<dim>()) ;
-
-          }
-          else
-          {
-             RhsFunc = std_cxx11::make_shared<Function<dim>> (two_charges<dim>());
-
-          }
-
-
-
-
           for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
             for (unsigned int i=0; i<dofs_per_cell; ++i)
               {
@@ -436,7 +532,8 @@ const double pi= 3.141592653589793238463;
 
 
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * (RhsFunc->RHSvalue(fe_values.quadrature_point (q_point)) )* fe_values.JxW(q_point));
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) * (RhsFunc->RHSvalue(fe_values.quadrature_point (q_point)) )
+                                * fe_values.JxW(q_point));
               }
 
           cell->get_dof_indices (local_dof_indices);
@@ -722,18 +819,20 @@ const double pi= 3.141592653589793238463;
   void LaplaceProblem<dim>::run ()
   {
       prm.enter_subsection ("Geometry");
-      domain_size_left     = prm.get_double ("Domain size left");
-      domain_size_right     = prm.get_double ("Domain size right");
+      domain_size_left     = prm.get_double ("Domain limit left");
+      domain_size_right     = prm.get_double ("Domain limit right");
       number_of_global_refinement =prm.get_integer("Number of global refinement");
       prm.leave_subsection ();
       std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
       std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
               <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
-      prm.enter_subsection("Solver");
+      /*
+      prm.enter_subsection("Problem Selection");
       Problemtype= (prm.get("Problem"));
       prm.leave_subsection();
       std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+      */
 
       prm.enter_subsection ("Misc");
       number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
@@ -798,7 +897,12 @@ int main (int argc, char *argv[])
       const unsigned int Degree = prm.get_integer("Polynomial degree");
       std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
-      LaplaceProblem<2> laplace_problem(Degree , prm );
+      prm.enter_subsection("Problem Selection");
+      std::string Problemtype= (prm.get("Problem"));
+      prm.leave_subsection();
+      std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+
+      LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype);
 
 
       laplace_problem.run ();
