@@ -135,10 +135,9 @@ double Coefficient<dim>::value (const Point<dim> &p,
 namespace GaussianCharges
 {
 using namespace dealii;
-//using namespace Step50;
 
 const double r_c = 0.5;
-const double pi= 3.141592653589793238463;
+
 
 template <int dim>
 class RightHandSide : public Function<dim>
@@ -166,10 +165,10 @@ double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*compo
 
     for (unsigned int i=0; i<dim; ++i)
     {
-        radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
+        radial_distance += p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
     }
     //^^^ see Point<dim> class.
-    return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5)) ;
+    return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
     return return_value;
 }
 
@@ -194,9 +193,6 @@ namespace YetAnotherProblem
             }
         }
 */
-
-//  Step16::RightHandSide<dim>
-//  TwoCharges::RightHandSide<dim>
 
 
 namespace Step50
@@ -311,59 +307,6 @@ void ParameterReader::read_parameters(const std::string parameter_file)
     prm.read_input(parameter_file);
 }
 
-/*
-  template <int dim>
-  class Coefficient : public Function<dim>
-  {
-  public:
-    Coefficient () : Function<dim>() {}
-
-    virtual double value (const Point<dim>   &p,
-                          const unsigned int  component = 0) const;
-
-    virtual void value_list (const std::vector<Point<dim> > &points,
-                             std::vector<double>            &values,
-                             const unsigned int              component = 0) const;
-  };
-*/
-/*
-
-  template <int dim>
-  double Coefficient<dim>::value (const Point<dim> &p,
-                                  const unsigned int) const
-  {
-    if (p.square() < 0.5*0.5)
-      return 5;
-    else
-      return 1;
-  }
-
-
-
-  template <int dim>
-  void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
-                                     std::vector<double>            &values,
-                                     const unsigned int              component) const
-  {
-    const unsigned int n_points = points.size();
-
-    Assert (values.size() == n_points,
-            ExcDimensionMismatch (values.size(), n_points));
-
-    Assert (component == 0,
-            ExcIndexRange (component, 0, 1));
-
-    for (unsigned int i=0; i<n_points; ++i)
-      values[i] = Coefficient<dim>::value (points[i]);
-  }
-
-
-*/
-
-
-
-
-
 
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype)
@@ -476,11 +419,6 @@ void LaplaceProblem<dim>::assemble_system ()
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
     std::vector<double>    coefficient_values (n_q_points);
-
-
-    // move it to the member of the class and initialize in constructor
-
-
 
 
     typename DoFHandler<dim>::active_cell_iterator
