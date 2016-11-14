@@ -99,7 +99,8 @@ namespace Step16
   {
   public:
     RightHandSide():Function<dim>() {}
-    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  /*component = 0*/) const;
   };
 
   template <int dim>
@@ -110,58 +111,34 @@ namespace Step16
 
     virtual double value (const Point<dim>   &p,
                           const unsigned int  component = 0) const;
-
-
-    virtual void value_list (const std::vector<Point<dim> > &points,
-                             std::vector<double>            &values,
-                             const unsigned int              component = 0) const;
-
   };
 
   template <int dim>
-  double RightHandSide<dim>::RHSvalue (const Point<dim> &p, const unsigned int /*component = 0*/) const
+  double RightHandSide<dim>::value (const Point<dim> &/*p*/,
+                                    const unsigned int /*component = 0*/) const
   {
-    double return_value = 10.0;
-
-    return return_value;
-
+    return 10.0;
   }
 
   template <int dim>
   double Coefficient<dim>::value (const Point<dim> &p,
                                   const unsigned int) const
   {
-    MeshWorker::DoFInfo<dim> dinfo;
-    AssertDimension (dinfo.n_matrices(), 1);
-
-    if (dinfo.cell->center()(0) > 0.)
+    /*
+      if (p(0) > 0.)
       return 0.1;
     else
       return 1;
-
+      */
+      if(p.square() < 0.5*0.5)
+          return 5;
+        else
+          return 1;
   }
-
-  template <int dim>
-  void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
-                                     std::vector<double>            &values,
-                                     const unsigned int              component) const
-  {
-    const unsigned int n_points = points.size();
-
-    Assert (values.size() == n_points,
-            ExcDimensionMismatch (values.size(), n_points));
-
-    Assert (component == 0,
-            ExcIndexRange (component, 0, 1));
-
-    for (unsigned int i=0; i<n_points; ++i)
-      values[i] = Coefficient<dim>::value (points[i]);
-  }
-
 }
 
 
-namespace Gaussiancharges
+namespace GaussianCharges
 {
   using namespace dealii;
   //using namespace Step50;
@@ -174,7 +151,7 @@ namespace Gaussiancharges
   {
   public:
     RightHandSide():Function<dim>() {}
-    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const override;
+    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
   };
 
   template <int dim>
@@ -185,23 +162,19 @@ namespace Gaussiancharges
 
     virtual double value (const Point<dim>   &p,
                           const unsigned int  component = 0) const;
-
-
-    virtual void value_list (const std::vector<Point<dim> > &points,
-                             std::vector<double>            &values,
-                             const unsigned int              component = 0) const;
-
   };
 
 
   template <int dim>
-  double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/) const
+  double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
   {
     double radial_distance = 0.0, return_value = 0.0;
+
     for (unsigned int i=0; i<dim; ++i)
       {
         radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
       }
+    //^^^ see Point<dim> class.
     return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5)) ;
     return return_value;
   }
@@ -215,26 +188,6 @@ namespace Gaussiancharges
     else
       return 1;
   }
-
-
-
-  template <int dim>
-  void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
-                                     std::vector<double>            &values,
-                                     const unsigned int              component) const
-  {
-    const unsigned int n_points = points.size();
-
-    Assert (values.size() == n_points,
-            ExcDimensionMismatch (values.size(), n_points));
-
-    Assert (component == 0,
-            ExcIndexRange (component, 0, 1));
-
-    for (unsigned int i=0; i<n_points; ++i)
-      values[i] = Coefficient<dim>::value (points[i]);
-  }
-
 }
 
 /*
@@ -303,12 +256,9 @@ namespace Step50
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     double domain_size_left , domain_size_right;
     std::string Problemtype;
-    std_cxx11::shared_ptr<Function<dim>> RhsFunc = nullptr;
-
+    std::shared_ptr<Function<dim>> rhs_func;
+    std::shared_ptr<Function<dim>> coeff_func;
   };
-
-
-
 
 
   class ParameterReader: public Subscriptor
@@ -367,7 +317,7 @@ namespace Step50
     prm.read_input(parameter_file);
   }
 
-
+/*
   template <int dim>
   class Coefficient : public Function<dim>
   {
@@ -381,8 +331,8 @@ namespace Step50
                              std::vector<double>            &values,
                              const unsigned int              component = 0) const;
   };
-
-
+*/
+/*
 
   template <int dim>
   double Coefficient<dim>::value (const Point<dim> &p,
@@ -414,7 +364,7 @@ namespace Step50
   }
 
 
-
+*/
 
 
 
@@ -437,15 +387,15 @@ namespace Step50
     Problemtype(Problemtype)
 
   {
-    if (Problemtype== "Step16")
+    if (Problemtype == "Step16")
       {
-        RhsFunc = std_cxx11::make_shared<Function<dim>> (Step16::RightHandSide<dim>()) ;
-
+        rhs_func   = std::make_shared<Step16::RightHandSide<dim>>();
+        coeff_func = std::make_shared<Step16::Coefficient<dim>>();
       }
-    else
+    if(Problemtype == "GaussianCharges")
       {
-        RhsFunc = std_cxx11::make_shared<Function<dim>> (Gaussiancharges::RightHandSide<dim>());
-
+        rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>();
+        coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
       }
   }
 
@@ -531,7 +481,6 @@ namespace Step50
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
-    const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
 
 
@@ -551,7 +500,7 @@ namespace Step50
 
           fe_values.reinit (cell);
 
-          coefficient.value_list (fe_values.get_quadrature_points(),
+          coeff_func->value_list (fe_values.get_quadrature_points(),
                                   coefficient_values);
 
 
@@ -566,7 +515,8 @@ namespace Step50
 
 
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * (RhsFunc->RHSvalue(fe_values.quadrature_point (q_point)) )
+                cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                                rhs_func->value(fe_values.quadrature_point (q_point))
                                 * fe_values.JxW(q_point));
               }
 
@@ -598,7 +548,6 @@ namespace Step50
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
-    const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
 
 
@@ -625,7 +574,7 @@ namespace Step50
           cell_matrix = 0;
           fe_values.reinit (cell);
 
-          coefficient.value_list (fe_values.get_quadrature_points(),
+          coeff_func->value_list (fe_values.get_quadrature_points(),
                                   coefficient_values);
 
           for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
@@ -861,12 +810,6 @@ namespace Step50
     std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
              <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
-    /*
-    prm.enter_subsection("Problem Selection");
-    Problemtype= (prm.get("Problem"));
-    prm.leave_subsection();
-    std::cout<<"Problem type is:   " << Problemtype<<std::endl;
-    */
 
     prm.enter_subsection ("Misc");
     number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
@@ -908,7 +851,7 @@ namespace Step50
         assemble_multigrid ();
 
         solve ();
-        //output_results (cycle);
+        output_results (cycle);
       }
   }
 }
@@ -916,7 +859,7 @@ namespace Step50
 
 int main (int argc, char *argv[])
 {
-  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 3);
+  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
   try
     {
@@ -926,7 +869,7 @@ int main (int argc, char *argv[])
 
       ParameterHandler prm;
       ParameterReader param(prm);
-      param.read_parameters("prmtest.prm");
+      param.read_parameters("step-16.prm");
 
       const unsigned int Degree = prm.get_integer("Polynomial degree");
       std::cout<<"Polynomial degree: "<<Degree<<std::endl;
