@@ -16,7 +16,7 @@ end
 subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
-	set Number of Adaptive Refinement = 4
+	set Number of Adaptive Refinement = 8
 end
 
 # Polynomial degree of finite elements

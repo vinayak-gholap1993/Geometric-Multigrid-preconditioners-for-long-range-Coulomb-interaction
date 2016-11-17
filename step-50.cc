@@ -124,7 +124,7 @@ template <int dim>
 double Coefficient<dim>::value (const Point<dim> &p,
                                 const unsigned int) const
 {
-    if (p(0) > 0.)
+    if (p(0) > 0.0)
         return 0.1;
     else
         return 1;
@@ -161,14 +161,13 @@ public:
 template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
 {
-    double radial_distance = 0.0, return_value = 0.0;
+    double radial_distance_squared = 0.0, return_value = 0.0;
 
-    for (unsigned int i=0; i<dim; ++i)
-    {
-        radial_distance += p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
-    }
+
+        radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
+
     //^^^ see Point<dim> class.
-    return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
+    return_value = (8.0 * exp((-4.0 * radial_distance_squared)/ (r_c * r_c)) - exp((-radial_distance_squared)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
     return return_value;
 }
 
@@ -285,7 +284,7 @@ void ParameterReader::declare_parameters()
 
     prm.enter_subsection("Problem Selection");
     {
-        prm.declare_entry ("Problem","two charges",Patterns::Selection("Step16 | two charges"),
+        prm.declare_entry ("Problem","Step16",Patterns::Selection("Step16 | GaussianCharges"),
                            "Problem definition for RHS Function");
     }
     prm.leave_subsection();
@@ -448,8 +447,8 @@ void LaplaceProblem<dim>::assemble_system ()
 
 
                     cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                    rhs_func->value(fe_values.quadrature_point (q_point))
-                                    * fe_values.JxW(q_point));
+                                    rhs_func->value(fe_values.quadrature_point (q_point)) *
+                                    fe_values.JxW(q_point));
                 }
 
             cell->get_dof_indices (local_dof_indices);
@@ -791,7 +790,7 @@ void LaplaceProblem<dim>::run ()
 
 int main (int argc, char *argv[])
 {
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 5);
 
     try
     {
@@ -801,7 +800,7 @@ int main (int argc, char *argv[])
 
         ParameterHandler prm;
         ParameterReader param(prm);
-        param.read_parameters("step-16.prm");
+        param.read_parameters("gaussian_charges.prm");
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
         std::cout<<"Polynomial degree: "<<Degree<<std::endl;
