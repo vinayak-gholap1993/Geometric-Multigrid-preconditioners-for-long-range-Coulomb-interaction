@@ -553,8 +553,7 @@ void LaplaceProblem<dim>::assemble_multigrid ()
                     }
 
 
-            empty_constraints
-            .distribute_local_to_global (cell_matrix,
+            empty_constraints.distribute_local_to_global (cell_matrix,
                                          local_dof_indices,
                                          mg_interface_matrices[cell->level()]);
         }
@@ -629,7 +628,9 @@ void LaplaceProblem<dim>::solve ()
         solver.solve (system_matrix, solution, system_rhs,
                       preconditioner);
     }
-    //pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
+    pcout << "   Starting value " << solver_control.initial_value() << std::endl;
+    pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
+    pcout << "   Convergence value " << solver_control.last_value() << std::endl;
 
     constraints.distribute (solution);
 }
@@ -763,26 +764,20 @@ void LaplaceProblem<dim>::run ()
         else
             refine_grid ();
 
-        pcout << "   Number of active cells:       "
-              << triangulation.n_global_active_cells()
-              << std::endl;
+        pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
 
         setup_system ();
 
-        pcout << "   Number of degrees of freedom: "
-              << mg_dof_handler.n_dofs()
-              << " (by level: ";
+        pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
-            pcout << mg_dof_handler.n_dofs(level)
-                  << (level == triangulation.n_global_levels()-1
-                      ? ")" : ", ");
+            pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
         assemble_system ();
         assemble_multigrid ();
 
         solve ();
-        output_results (cycle);
+        //output_results (cycle);
     }
 }
 }
@@ -790,25 +785,27 @@ void LaplaceProblem<dim>::run ()
 
 int main (int argc, char *argv[])
 {
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 5);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
     try
     {
         using namespace dealii;
         using namespace Step50;
-        deallog.depth_console(2);
+
+        //deallog.depth_console(3);
+
 
         ParameterHandler prm;
         ParameterReader param(prm);
-        param.read_parameters("gaussian_charges.prm");
-
-        const unsigned int Degree = prm.get_integer("Polynomial degree");
-        std::cout<<"Polynomial degree: "<<Degree<<std::endl;
+        param.read_parameters("step-16.prm");        
 
         prm.enter_subsection("Problem Selection");
         std::string Problemtype= (prm.get("Problem"));
         prm.leave_subsection();
         std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+
+        const unsigned int Degree = prm.get_integer("Polynomial degree");
+        std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
         LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype);
 

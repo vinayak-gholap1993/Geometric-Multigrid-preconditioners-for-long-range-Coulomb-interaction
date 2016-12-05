@@ -1,0 +1,41 @@
+[ 66%] Built target step-50
+Scanning dependencies of target run
+[100%] Run step-50 with Debug configuration
+Problem type is:   Step16
+Polynomial degree: 1
+No. of global refinement is: 4
+Domain size: 
+Left: 0
+Right: 1
+No. of adaptive refinement cycles are: 5
+Cycle 0:
+   Number of active cells:       256
+   Number of degrees of freedom: 289 (by level: 4, 9, 25, 81, 289)
+   Starting value 0.585938
+   CG converged in 6 iterations.
+   Convergence value 2.82724e-09
+Cycle 1:
+   Number of active cells:       1012
+   Number of degrees of freedom: 1077 (by level: 4, 9, 25, 81, 289, 1073)
+   Starting value 0.303403
+   CG converged in 7 iterations.
+   Convergence value 5.87688e-10
+Cycle 2:
+   Number of active cells:       3976
+   Number of degrees of freedom: 4105 (by level: 4, 9, 25, 81, 289, 1089, 4065)
+   Starting value 0.158037
+   CG converged in 8 iterations.
+   Convergence value 2.97599e-11
+Cycle 3:
+   Number of active cells:       4084
+   Number of degrees of freedom: 4213 (by level: 4, 9, 25, 81, 289, 1089, 4209)
+   Starting value 0.153891
+   CG converged in 8 iterations.
+   Convergence value 2.49804e-11
+Cycle 4:
+   Number of active cells:       16264
+   Number of degrees of freedom: 16521 (by level: 4, 9, 25, 81, 289, 1089, 4225, 16481)
+   Starting value 0.0780445
+   CG converged in 8 iterations.
+   Convergence value 5.19882e-11
+[100%] Built target run
