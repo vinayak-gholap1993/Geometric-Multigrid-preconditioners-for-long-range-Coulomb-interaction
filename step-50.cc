@@ -124,8 +124,8 @@ template <int dim>
 double Coefficient<dim>::value (const Point<dim> &p,
                                 const unsigned int) const
 {
-    if (p(0) > 0.0)
-        return 0.1;
+    if (p.square() < 0.5*0.5)
+        return 5;
     else
         return 1;
 }
@@ -172,12 +172,9 @@ double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*compo
 }
 
 template <int dim>
-double Coefficient<dim>::value (const Point<dim> &p,
+double Coefficient<dim>::value (const Point<dim> &,
                                 const unsigned int) const
 {
-    if (p.square() < 0.5*0.5)
-        return 5;
-    else
         return 1;
 }
 }
@@ -793,11 +790,13 @@ int main (int argc, char *argv[])
         using namespace Step50;
 
         //deallog.depth_console(3);
+        AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
 
+        std::string parame_name (argv[1]);
 
         ParameterHandler prm;
         ParameterReader param(prm);
-        param.read_parameters("step-16.prm");        
+        param.read_parameters(parame_name);
 
         prm.enter_subsection("Problem Selection");
         std::string Problemtype= (prm.get("Problem"));
