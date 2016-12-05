@@ -66,6 +66,9 @@
 #include <deal.II/multigrid/mg_smoother.h>
 #include <deal.II/multigrid/mg_matrix.h>
 
+#include <deal.II/meshworker/dof_info.h>
+#include <deal.II/meshworker/integration_info.h>
+#include <deal.II/meshworker/loop.h>
 
 #include <deal.II/lac/generic_linear_algebra.h>
 
@@ -73,9 +76,9 @@
 namespace LA
 {
 #ifdef USE_PETSC_LA
-  using namespace dealii::LinearAlgebraPETSc;
+using namespace dealii::LinearAlgebraPETSc;
 #else
-  using namespace dealii::LinearAlgebraTrilinos;
+using namespace dealii::LinearAlgebraTrilinos;
 #endif
 }
 
@@ -83,22 +86,125 @@ namespace LA
 #include <fstream>
 #include <sstream>
 #include<math.h>
+#include<memory>
+
+
+
+namespace Step16
+{
+using namespace dealii;
+
+template <int dim>
+class RightHandSide : public Function<dim>
+{
+public:
+    RightHandSide():Function<dim>() {}
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  /*component = 0*/) const;
+};
+
+template <int dim>
+class Coefficient : public Function<dim>
+{
+public:
+    Coefficient () : Function<dim>() {}
+
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const;
+};
+
+template <int dim>
+double RightHandSide<dim>::value (const Point<dim> &/*p*/,
+                                  const unsigned int /*component = 0*/) const
+{
+    return 10.0;
+}
+
+template <int dim>
+double Coefficient<dim>::value (const Point<dim> &p,
+                                const unsigned int) const
+{
+    if (p.square() < 0.5*0.5)
+        return 5;
+    else
+        return 1;
+}
+}
+
+
+namespace GaussianCharges
+{
+using namespace dealii;
+
+const double r_c = 0.5;
+
+
+template <int dim>
+class RightHandSide : public Function<dim>
+{
+public:
+    RightHandSide():Function<dim>() {}
+    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
+};
+
+template <int dim>
+class Coefficient : public Function<dim>
+{
+public:
+    Coefficient () : Function<dim>() {}
+
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const;
+};
+
+
+template <int dim>
+double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
+{
+    double radial_distance_squared = 0.0, return_value = 0.0;
+
+
+        radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
+
+    //^^^ see Point<dim> class.
+    return_value = (8.0 * exp((-4.0 * radial_distance_squared)/ (r_c * r_c)) - exp((-radial_distance_squared)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
+    return return_value;
+}
+
+template <int dim>
+double Coefficient<dim>::value (const Point<dim> &,
+                                const unsigned int) const
+{
+        return 1;
+}
+}
+
+/*
+namespace YetAnotherProblem
+        {
+            template <int dim>
+            class RightHandSide : public Function<dim>
+            {
+
+            }
+        }
+*/
 
 
 namespace Step50
 {
-  using namespace dealii;
+using namespace dealii;
 
 
 
-  template <int dim>
-  class LaplaceProblem
-  {
-  public:
-    LaplaceProblem (const unsigned int deg , ParameterHandler & );
+template <int dim>
+class LaplaceProblem
+{
+public:
+    LaplaceProblem (const unsigned int deg , ParameterHandler &, std::string &);
     void run ();
 
-  private:
+private:
     void setup_system ();
     void assemble_system ();
     void assemble_multigrid ();
@@ -135,149 +241,107 @@ namespace Step50
 
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     double domain_size_left , domain_size_right;
+    std::string Problemtype;
+    std::shared_ptr<Function<dim>> rhs_func;
+    std::shared_ptr<Function<dim>> coeff_func;
+};
 
 
+class ParameterReader: public Subscriptor
+{
+public:
+    ParameterReader(ParameterHandler &);
+    void read_parameters(const std::string);
 
-  };
+private:
+    void declare_parameters();
+    ParameterHandler &prm;
+};
 
-  class ParameterReader: public Subscriptor
-  {
-  public:
-      ParameterReader(ParameterHandler &);
-      void read_parameters(const std::string);
+ParameterReader::ParameterReader(ParameterHandler &paramhandler)
+    :
+    prm(paramhandler)
+{}
 
-  private:
-      void declare_parameters();
-      ParameterHandler &prm;
-  };
-
-  ParameterReader::ParameterReader(ParameterHandler &paramhandler)
-      :
-      prm(paramhandler)
-  {}
-
-  void ParameterReader::declare_parameters()
-     {
-       prm.enter_subsection("Geometry description");
-      {
-          prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
-                            "The uniform global mesh refinement on the Domain in the power of 4");
-
-          prm.declare_entry("Domain size left","-1",Patterns::Double(),"Left limit of domain size");
-
-          prm.declare_entry("Domain size right","1",Patterns::Double(),"Right limit of domain size");
-      }
-      prm.leave_subsection();
-
-      prm.enter_subsection("Solver and Miscellaneous Data");
-      {
-        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),"Number of Adaptive refinement cycles to be done");
-      }
-      prm.leave_subsection();
-
-      prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),"Polynomial degree of finite elements");
-    }
-
-  void ParameterReader::read_parameters(const std::string parameter_file)
-  {
-      declare_parameters();
-      prm.read_input(parameter_file);
-  }
-
-
-  template <int dim>
-  class Coefficient : public Function<dim>
-  {
-  public:
-    Coefficient () : Function<dim>() {}
-
-    virtual double value (const Point<dim>   &p,
-                          const unsigned int  component = 0) const;
-
-    virtual void value_list (const std::vector<Point<dim> > &points,
-                             std::vector<double>            &values,
-                             const unsigned int              component = 0) const;
-  };
-
-  template <int dim>
-  class RightHandSide : public Function<dim>
-  {
-  public:
-    RightHandSide () : Function<dim>() {}
-    virtual double RHSvalue (const Point<dim>   &p,  const unsigned int  component = 0) ;
-  };
-
-  template <int dim>
-  double Coefficient<dim>::value (const Point<dim> &p,
-                                  const unsigned int) const
-  {
-    if (p.square() < 0.5*0.5)
-      return 5;
-    else
-      return 1;
-  }
-
-
-
-  template <int dim>
-  void Coefficient<dim>::value_list (const std::vector<Point<dim> > &points,
-                                     std::vector<double>            &values,
-                                     const unsigned int              component) const
-  {
-    const unsigned int n_points = points.size();
-
-    Assert (values.size() == n_points,
-            ExcDimensionMismatch (values.size(), n_points));
-
-    Assert (component == 0,
-            ExcIndexRange (component, 0, 1));
-
-    for (unsigned int i=0; i<n_points; ++i)
-      values[i] = Coefficient<dim>::value (points[i]);
-  }
-
-const double r_c = 0.5;
-const double pi= 3.141592653589793238463;
-
-  template <int dim>
-  double RightHandSide<dim>::RHSvalue (const Point<dim> &p,const unsigned int /*component = 0*/)
-  {
-    double radial_distance = 0.0, return_value = 0.0;
-    for (unsigned int i=0; i<dim; ++i)
+void ParameterReader::declare_parameters()
+{
+    prm.enter_subsection("Geometry");
     {
-      radial_distance += std::pow(p(i), 2.0);  // r^2 = r_x^2 + r_y^2+ r_z^2
+        prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
+                          "The uniform global mesh refinement on the Domain in the power of 4");
+
+        prm.declare_entry("Domain limit left","-1",Patterns::Double(),
+                          "Left limit of domain");
+
+        prm.declare_entry("Domain limit right","1",Patterns::Double(),
+                          "Right limit of domain");
     }
-      return_value = (8.0 * exp((-4.0 * radial_distance)/ (r_c * r_c)) - exp((-radial_distance)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(pi, 1.5))  ;
-    return return_value;
-  }
+    prm.leave_subsection();
 
 
+    prm.enter_subsection("Problem Selection");
+    {
+        prm.declare_entry ("Problem","Step16",Patterns::Selection("Step16 | GaussianCharges"),
+                           "Problem definition for RHS Function");
+    }
+    prm.leave_subsection();
 
-  template <int dim>
-  LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param)
+    prm.enter_subsection("Misc");
+    {
+        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),
+                           "Number of Adaptive refinement cycles to be done");
+    }
+    prm.leave_subsection();
+
+    prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),
+                      "Polynomial degree of finite elements");
+}
+
+void ParameterReader::read_parameters(const std::string parameter_file)
+{
+    declare_parameters();
+    prm.read_input(parameter_file);
+}
+
+
+template <int dim>
+LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype)
     :
     pcout (std::cout,
-           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
-            == 0)),
+          (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
+           == 0)),
     triangulation (MPI_COMM_WORLD,Triangulation<dim>::
-                   limit_level_difference_at_vertices,
-                   parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
+                  limit_level_difference_at_vertices,
+                  parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
     fe (degree),
     mg_dof_handler (triangulation),
     degree(degree),
-    prm(param)
-  {}
+    prm(param),
+    Problemtype(Problemtype)
+
+{
+    if (Problemtype == "Step16")
+    {
+        rhs_func   = std::make_shared<Step16::RightHandSide<dim>>();
+        coeff_func = std::make_shared<Step16::Coefficient<dim>>();
+    }
+    if(Problemtype == "GaussianCharges")
+    {
+        rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>();
+        coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
+    }
+}
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::setup_system ()
-  {
+template <int dim>
+void LaplaceProblem<dim>::setup_system ()
+{
     mg_dof_handler.distribute_dofs (fe);
     mg_dof_handler.distribute_mg_dofs (fe);
 
     DoFTools::extract_locally_relevant_dofs (mg_dof_handler,
-                                             locally_relevant_set);
+            locally_relevant_set);
 
     solution.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
     system_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
@@ -291,8 +355,8 @@ const double pi= 3.141592653589793238463;
     ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
     dirichlet_boundary[0] = &homogeneous_dirichlet_bc;
     VectorTools::interpolate_boundary_values (mg_dof_handler,
-                                              dirichlet_boundary,
-                                              constraints);
+            dirichlet_boundary,
+            constraints);
     constraints.close ();
     hanging_node_constraints.close ();
 
@@ -313,7 +377,7 @@ const double pi= 3.141592653589793238463;
     mg_matrices.clear ();
 
     for (unsigned int level=0; level<n_levels; ++level)
-      {
+    {
         DynamicSparsityPattern dsp(mg_dof_handler.n_dofs(level),
                                    mg_dof_handler.n_dofs(level));
         MGTools::make_sparsity_pattern(mg_dof_handler, dsp, level);
@@ -327,21 +391,20 @@ const double pi= 3.141592653589793238463;
                                             mg_dof_handler.locally_owned_mg_dofs(level),
                                             dsp,
                                             MPI_COMM_WORLD, true);
-      }
-  }
+    }
+}
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::assemble_system ()
-  {
+template <int dim>
+void LaplaceProblem<dim>::assemble_system ()
+{
     const QGauss<dim>  quadrature_formula(degree+1);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
                              update_values    |  update_gradients |
                              update_quadrature_points  |  update_JxW_values);
 
-    RightHandSide<dim> right_hand_side;
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     const unsigned int   n_q_points    = quadrature_formula.size();
@@ -351,51 +414,55 @@ const double pi= 3.141592653589793238463;
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
-    const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
+
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
     endc = mg_dof_handler.end();
     for (; cell!=endc; ++cell)
-      if (cell->is_locally_owned())
+        if (cell->is_locally_owned())
         {
-          cell_matrix = 0;
-          cell_rhs = 0;
+            cell_matrix = 0;
+            cell_rhs = 0;
 
-          fe_values.reinit (cell);
+            fe_values.reinit (cell);
 
-          coefficient.value_list (fe_values.get_quadrature_points(),
-                                  coefficient_values);
+            coeff_func->value_list (fe_values.get_quadrature_points(),
+                                    coefficient_values);
 
-          for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-            for (unsigned int i=0; i<dofs_per_cell; ++i)
-              {
-                for (unsigned int j=0; j<dofs_per_cell; ++j)
-                  cell_matrix(i,j) += (coefficient_values[q_point] *
-                                       fe_values.shape_grad(i,q_point) *
-                                       fe_values.shape_grad(j,q_point) *
-                                       fe_values.JxW(q_point));
 
-                cell_rhs(i) += (fe_values.shape_value(i,q_point) * right_hand_side.RHSvalue (fe_values.quadrature_point (q_point))  *
-                                fe_values.JxW(q_point));
-              }
+            for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                {
+                    for (unsigned int j=0; j<dofs_per_cell; ++j)
+                        cell_matrix(i,j) += (coefficient_values[q_point] *
+                                             fe_values.shape_grad(i,q_point) *
+                                             fe_values.shape_grad(j,q_point) *
+                                             fe_values.JxW(q_point));
 
-          cell->get_dof_indices (local_dof_indices);
-          constraints.distribute_local_to_global (cell_matrix, cell_rhs,
-                                                  local_dof_indices,
-                                                  system_matrix, system_rhs);
+
+
+                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                                    rhs_func->value(fe_values.quadrature_point (q_point)) *
+                                    fe_values.JxW(q_point));
+                }
+
+            cell->get_dof_indices (local_dof_indices);
+            constraints.distribute_local_to_global (cell_matrix, cell_rhs,
+                                                    local_dof_indices,
+                                                    system_matrix, system_rhs);
         }
 
     system_matrix.compress(VectorOperation::add);
     system_rhs.compress(VectorOperation::add);
-  }
+}
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::assemble_multigrid ()
-  {
+template <int dim>
+void LaplaceProblem<dim>::assemble_multigrid ()
+{
     QGauss<dim>  quadrature_formula(1+degree);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
@@ -409,7 +476,6 @@ const double pi= 3.141592653589793238463;
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
-    const Coefficient<dim> coefficient;
     std::vector<double>    coefficient_values (n_q_points);
 
 
@@ -417,7 +483,7 @@ const double pi= 3.141592653589793238463;
     std::vector<ConstraintMatrix> boundary_constraints (triangulation.n_global_levels());
     ConstraintMatrix empty_constraints;
     for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
-      {
+    {
         IndexSet dofset;
         DoFTools::extract_locally_relevant_level_dofs (mg_dof_handler, level, dofset);
         boundary_constraints[level].reinit(dofset);
@@ -425,84 +491,83 @@ const double pi= 3.141592653589793238463;
         boundary_constraints[level].add_lines (mg_constrained_dofs.get_boundary_indices(level));
 
         boundary_constraints[level].close ();
-      }
+    }
 
     typename DoFHandler<dim>::cell_iterator cell = mg_dof_handler.begin(),
                                             endc = mg_dof_handler.end();
 
     for (; cell!=endc; ++cell)
-      if (cell->level_subdomain_id()==triangulation.locally_owned_subdomain())
+        if (cell->level_subdomain_id()==triangulation.locally_owned_subdomain())
         {
-          cell_matrix = 0;
-          fe_values.reinit (cell);
+            cell_matrix = 0;
+            fe_values.reinit (cell);
 
-          coefficient.value_list (fe_values.get_quadrature_points(),
-                                  coefficient_values);
+            coeff_func->value_list (fe_values.get_quadrature_points(),
+                                    coefficient_values);
 
-          for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+            for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                    for (unsigned int j=0; j<dofs_per_cell; ++j)
+                        cell_matrix(i,j) += (coefficient_values[q_point] *
+                                             fe_values.shape_grad(i,q_point) *
+                                             fe_values.shape_grad(j,q_point) *
+                                             fe_values.JxW(q_point));
+
+            cell->get_mg_dof_indices (local_dof_indices);
+
+            boundary_constraints[cell->level()].distribute_local_to_global (cell_matrix,local_dof_indices,
+                    mg_matrices[cell->level()]);
+
+
+            const IndexSet &interface_dofs_on_level
+                = mg_constrained_dofs.get_refinement_edge_indices(cell->level());
+            const unsigned int lvl = cell->level();
+
             for (unsigned int i=0; i<dofs_per_cell; ++i)
-              for (unsigned int j=0; j<dofs_per_cell; ++j)
-                cell_matrix(i,j) += (coefficient_values[q_point] *
-                                     fe_values.shape_grad(i,q_point) *
-                                     fe_values.shape_grad(j,q_point) *
-                                     fe_values.JxW(q_point));
-
-          cell->get_mg_dof_indices (local_dof_indices);
-
-          boundary_constraints[cell->level()].distribute_local_to_global (cell_matrix,local_dof_indices,
-        		  mg_matrices[cell->level()]);
-
-
-          const IndexSet &interface_dofs_on_level
-            = mg_constrained_dofs.get_refinement_edge_indices(cell->level());
-          const unsigned int lvl = cell->level();
-
-          for (unsigned int i=0; i<dofs_per_cell; ++i)
-            for (unsigned int j=0; j<dofs_per_cell; ++j)
-              if (interface_dofs_on_level.is_element(local_dof_indices[i])   // at_refinement_edge(i)
-                  &&
-                  !interface_dofs_on_level.is_element(local_dof_indices[j])   // !at_refinement_edge(j)
-                  &&
-                  (
-                    (!mg_constrained_dofs.is_boundary_index(lvl, local_dof_indices[i])
-                     &&
-                     !mg_constrained_dofs.is_boundary_index(lvl, local_dof_indices[j])
-                    ) // ( !boundary(i) && !boundary(j) )
-                    ||
-                    (
-                      mg_constrained_dofs.is_boundary_index(lvl, local_dof_indices[i])
-                      &&
-                      local_dof_indices[i]==local_dof_indices[j]
-                    ) // ( boundary(i) && boundary(j) && i==j )
-                  )
-                 )
-                {
-                }
-              else
-                {
-                  cell_matrix(i,j) = 0;
-                }
+                for (unsigned int j=0; j<dofs_per_cell; ++j)
+                    if (interface_dofs_on_level.is_element(local_dof_indices[i])   // at_refinement_edge(i)
+                            &&
+                            !interface_dofs_on_level.is_element(local_dof_indices[j])   // !at_refinement_edge(j)
+                            &&
+                            (
+                                (!mg_constrained_dofs.is_boundary_index(lvl, local_dof_indices[i])
+                                 &&
+                                 !mg_constrained_dofs.is_boundary_index(lvl, local_dof_indices[j])
+                                ) // ( !boundary(i) && !boundary(j) )
+                                ||
+                                (
+                                    mg_constrained_dofs.is_boundary_index(lvl, local_dof_indices[i])
+                                    &&
+                                    local_dof_indices[i]==local_dof_indices[j]
+                                ) // ( boundary(i) && boundary(j) && i==j )
+                            )
+                       )
+                    {
+                    }
+                    else
+                    {
+                        cell_matrix(i,j) = 0;
+                    }
 
 
-          empty_constraints
-          .distribute_local_to_global (cell_matrix,
-                                       local_dof_indices,
-                                       mg_interface_matrices[cell->level()]);
+            empty_constraints.distribute_local_to_global (cell_matrix,
+                                         local_dof_indices,
+                                         mg_interface_matrices[cell->level()]);
         }
 
     for (unsigned int i=0; i<triangulation.n_global_levels(); ++i)
-      {
+    {
         mg_matrices[i].compress(VectorOperation::add);
         mg_interface_matrices[i].compress(VectorOperation::add);
-      }
-  }
+    }
+}
 
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::solve ()
-  {
+template <int dim>
+void LaplaceProblem<dim>::solve ()
+{
     MGTransferPrebuilt<vector_t> mg_transfer(hanging_node_constraints, mg_constrained_dofs);
     mg_transfer.build_matrices(mg_dof_handler);
 
@@ -512,8 +577,8 @@ const double pi= 3.141592653589793238463;
     SolverCG<vector_t> coarse_solver(coarse_solver_control);
     PreconditionIdentity id;
     MGCoarseGridLACIteration<SolverCG<vector_t>,vector_t> coarse_grid_solver(coarse_solver,
-        coarse_matrix,
-        id);
+            coarse_matrix,
+            id);
 
     typedef LA::MPI::PreconditionJacobi Smoother;
     MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother;
@@ -540,7 +605,7 @@ const double pi= 3.141592653589793238463;
     SolverCG<vector_t> solver (solver_control);
 
     if (false)
-      {
+    {
         /*
          TrilinosWrappers::PreconditionAMG prec;
 
@@ -554,23 +619,25 @@ const double pi= 3.141592653589793238463;
                           Amg_data);
          solver.solve (system_matrix, solution, system_rhs, prec);
         */
-      }
+    }
     else
-      {
+    {
         solver.solve (system_matrix, solution, system_rhs,
                       preconditioner);
-      }
-    //pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
+    }
+    pcout << "   Starting value " << solver_control.initial_value() << std::endl;
+    pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
+    pcout << "   Convergence value " << solver_control.last_value() << std::endl;
 
     constraints.distribute (solution);
-  }
+}
 
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::refine_grid ()
-  {
+template <int dim>
+void LaplaceProblem<dim>::refine_grid ()
+{
     Vector<float> estimated_error_per_cell (triangulation.n_active_cells());
 
     LA::MPI::Vector temp_solution;
@@ -586,19 +653,19 @@ const double pi= 3.141592653589793238463;
     const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
     GridRefinement::refine (triangulation, estimated_error_per_cell, threshold);
 
-   // parallel::distributed::GridRefinement::
+    // parallel::distributed::GridRefinement::
     //refine_and_coarsen_fixed_fraction (triangulation,
-      //                                estimated_error_per_cell,
-        //                             0.3, 0.0);
+    //                                estimated_error_per_cell,
+    //                             0.3, 0.0);
 
     triangulation.execute_coarsening_and_refinement ();
-  }
+}
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
-  {
+template <int dim>
+void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
+{
     DataOut<dim> data_out;
 
     LA::MPI::Vector temp_solution;
@@ -616,7 +683,7 @@ const double pi= 3.141592653589793238463;
     data_out.add_data_vector (res_ghosted, "res");
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
-      subdomain(i) = triangulation.locally_owned_subdomain();
+        subdomain(i) = triangulation.locally_owned_subdomain();
     data_out.add_data_vector (subdomain, "subdomain");
 
     data_out.build_patches (0);
@@ -631,14 +698,14 @@ const double pi= 3.141592653589793238463;
     data_out.write_vtu (output);
 
     if (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
-      {
+    {
         std::vector<std::string> filenames;
         for (unsigned int i=0; i<Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD); ++i)
-          filenames.push_back (std::string("solution-") +
-                               Utilities::int_to_string (cycle, 5) +
-                               "." +
-                               Utilities::int_to_string(i, 4) +
-                               ".vtu");
+            filenames.push_back (std::string("solution-") +
+                                 Utilities::int_to_string (cycle, 5) +
+                                 "." +
+                                 Utilities::int_to_string(i, 4) +
+                                 ".vtu");
         const std::string
         pvtu_master_filename = ("solution-" +
                                 Utilities::int_to_string (cycle, 5) +
@@ -655,112 +722,118 @@ const double pi= 3.141592653589793238463;
 
         //std::cout << "   wrote " << pvtu_master_filename << std::endl;
 
-      }
-  }
+    }
+}
 
 
 
-  template <int dim>
-  void LaplaceProblem<dim>::run ()
-  {
-      prm.enter_subsection ("Geometry description");
-      domain_size_left     = prm.get_double ("Domain size left");
-      domain_size_right     = prm.get_double ("Domain size right");
-      number_of_global_refinement =prm.get_integer("Number of global refinement");
-      prm.leave_subsection ();
-      std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
-      std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left<<std::endl<<"Right: "<<domain_size_right<<std::endl;
-
-      prm.enter_subsection ("Solver and Miscellaneous Data");
-      number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
-      prm.leave_subsection ();
-      std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
+template <int dim>
+void LaplaceProblem<dim>::run ()
+{
+    prm.enter_subsection ("Geometry");
+    domain_size_left     = prm.get_double ("Domain limit left");
+    domain_size_right     = prm.get_double ("Domain limit right");
+    number_of_global_refinement =prm.get_integer("Number of global refinement");
+    prm.leave_subsection ();
+    std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
+    std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
+             <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
 
+    prm.enter_subsection ("Misc");
+    number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
+    prm.leave_subsection ();
+    std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
 
-    for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle) // first mesh size 4^2 = 16*16*16 and then 2 refinements
-      {
+
+
+    for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
+        // first mesh size 4^2 = 16*16*16 and then 2 refinements
+    {
         pcout << "Cycle " << cycle << ':' << std::endl;
 
         if (cycle == 0)
-          {
+        {
             GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
 
-            triangulation.refine_global (number_of_global_refinement);  //first mesh size 4^2 = 16*16*16
-          }
+            triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
+        }
         else
-          refine_grid ();
+            refine_grid ();
 
-        pcout << "   Number of active cells:       "
-              << triangulation.n_global_active_cells()
-              << std::endl;
+        pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
 
         setup_system ();
 
-        pcout << "   Number of degrees of freedom: "
-              << mg_dof_handler.n_dofs()
-              << " (by level: ";
+        pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
-          pcout << mg_dof_handler.n_dofs(level)
-                << (level == triangulation.n_global_levels()-1
-                    ? ")" : ", ");
+            pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
         assemble_system ();
         assemble_multigrid ();
 
         solve ();
-        output_results (cycle);
-      }
-  }
+        //output_results (cycle);
+    }
+}
 }
 
 
 int main (int argc, char *argv[])
 {
-  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 3);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
-  try
+    try
     {
-      using namespace dealii;
-      using namespace Step50;
-      deallog.depth_console(2);
+        using namespace dealii;
+        using namespace Step50;
 
-      ParameterHandler prm;
-      ParameterReader param(prm);
-      param.read_parameters("prmtest.prm");
+        //deallog.depth_console(3);
+        AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
 
-      const unsigned int Degree = prm.get_integer("Polynomial degree");
-      std::cout<<"Polynomial degree: "<<Degree<<std::endl;
+        std::string parame_name (argv[1]);
 
-      LaplaceProblem<3> laplace_problem(Degree , prm );
+        ParameterHandler prm;
+        ParameterReader param(prm);
+        param.read_parameters(parame_name);
+
+        prm.enter_subsection("Problem Selection");
+        std::string Problemtype= (prm.get("Problem"));
+        prm.leave_subsection();
+        std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+
+        const unsigned int Degree = prm.get_integer("Polynomial degree");
+        std::cout<<"Polynomial degree: "<<Degree<<std::endl;
+
+        LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype);
 
 
-      laplace_problem.run ();
+        laplace_problem.run ();
     }
-  catch (std::exception &exc)
+    catch (std::exception &exc)
     {
-      std::cerr << std::endl << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Exception on processing: " << std::endl
-                << exc.what() << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      throw;
+        std::cerr << std::endl << std::endl
+                  << "----------------------------------------------------"
+                  << std::endl;
+        std::cerr << "Exception on processing: " << std::endl
+                  << exc.what() << std::endl
+                  << "Aborting!" << std::endl
+                  << "----------------------------------------------------"
+                  << std::endl;
+        throw;
     }
-  catch (...)
+    catch (...)
     {
-      std::cerr << std::endl << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      std::cerr << "Unknown exception!" << std::endl
-                << "Aborting!" << std::endl
-                << "----------------------------------------------------"
-                << std::endl;
-      throw;
+        std::cerr << std::endl << std::endl
+                  << "----------------------------------------------------"
+                  << std::endl;
+        std::cerr << "Unknown exception!" << std::endl
+                  << "Aborting!" << std::endl
+                  << "----------------------------------------------------"
+                  << std::endl;
+        throw;
     }
 
-  return 0;
+    return 0;
 }

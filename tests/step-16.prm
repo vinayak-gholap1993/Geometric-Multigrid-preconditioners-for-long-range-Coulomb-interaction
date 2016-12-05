@@ -1,0 +1,30 @@
+
+#Input geometry details for the Laplace problem to be solved
+# which shall be Domain size, initial mesh
+
+subsection Geometry	
+	# The uniform global mesh refinement on the Domain in the power of 4
+	set Number of global refinement = 4
+
+	#Left limit of domain
+	set Domain limit left = 0.0
+
+	#Right limit of domain
+	set Domain limit right = 1.0
+end
+
+subsection Misc
+
+	# Number of Adaptive refinement cycles to be done
+	set Number of Adaptive Refinement = 5
+end
+
+# Polynomial degree of finite elements
+	set Polynomial degree = 1
+
+# Solver input data which shall give flexibility to have different 
+# preconditioners, problem type and solver input variables
+
+subsection Problem Selection
+	set Problem = Step16
+end	
