@@ -164,7 +164,7 @@ double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*compo
     double radial_distance_squared = 0.0, return_value = 0.0;
 
 
-        radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
+    radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
 
     //^^^ see Point<dim> class.
     return_value = (8.0 * exp((-4.0 * radial_distance_squared)/ (r_c * r_c)) - exp((-radial_distance_squared)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
@@ -175,7 +175,7 @@ template <int dim>
 double Coefficient<dim>::value (const Point<dim> &,
                                 const unsigned int) const
 {
-        return 1;
+    return 1;
 }
 }
 
@@ -320,6 +320,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     Problemtype(Problemtype)
 
 {
+    pcout<<"Problem type is:   " << Problemtype<<std::endl;
+
     if (Problemtype == "Step16")
     {
         rhs_func   = std::make_shared<Step16::RightHandSide<dim>>();
@@ -551,8 +553,8 @@ void LaplaceProblem<dim>::assemble_multigrid ()
 
 
             empty_constraints.distribute_local_to_global (cell_matrix,
-                                         local_dof_indices,
-                                         mg_interface_matrices[cell->level()]);
+                    local_dof_indices,
+                    mg_interface_matrices[cell->level()]);
         }
 
     for (unsigned int i=0; i<triangulation.n_global_levels(); ++i)
@@ -735,15 +737,15 @@ void LaplaceProblem<dim>::run ()
     domain_size_right     = prm.get_double ("Domain limit right");
     number_of_global_refinement =prm.get_integer("Number of global refinement");
     prm.leave_subsection ();
-    std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
-    std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
-             <<std::endl<<"Right: "<<domain_size_right<<std::endl;
+    //std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
+    //std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
+    //       <<std::endl<<"Right: "<<domain_size_right<<std::endl;
 
 
     prm.enter_subsection ("Misc");
     number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
     prm.leave_subsection ();
-    std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
+    //std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
 
 
 
@@ -792,19 +794,19 @@ int main (int argc, char *argv[])
         //deallog.depth_console(3);
         AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
 
-        std::string parame_name (argv[1]);
+        std::string parameter_filename (argv[1]);
 
         ParameterHandler prm;
         ParameterReader param(prm);
-        param.read_parameters(parame_name);
+        param.read_parameters(parameter_filename);
 
         prm.enter_subsection("Problem Selection");
         std::string Problemtype= (prm.get("Problem"));
         prm.leave_subsection();
-        std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+        //std::cout<<"Problem type is:   " << Problemtype<<std::endl;
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
-        std::cout<<"Polynomial degree: "<<Degree<<std::endl;
+        //std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
         LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype);
 
