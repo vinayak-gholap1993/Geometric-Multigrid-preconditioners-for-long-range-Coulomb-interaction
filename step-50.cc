@@ -53,6 +53,7 @@
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/error_estimator.h>
+#include <deal.II/numerics/fe_field_function.h>
 
 #include <deal.II/base/index_set.h>
 #include <deal.II/distributed/tria.h>
@@ -71,7 +72,7 @@
 #include <deal.II/meshworker/loop.h>
 
 #include <deal.II/lac/generic_linear_algebra.h>
-
+#include <deal.II/base/timer.h>
 
 namespace LA
 {
@@ -85,8 +86,9 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include<math.h>
-#include<memory>
+#include <math.h>
+#include <memory>
+#include <string>
 
 
 
@@ -164,9 +166,8 @@ double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*compo
     double radial_distance_squared = 0.0, return_value = 0.0;
 
 
-        radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
+    radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
 
-    //^^^ see Point<dim> class.
     return_value = (8.0 * exp((-4.0 * radial_distance_squared)/ (r_c * r_c)) - exp((-radial_distance_squared)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
     return return_value;
 }
@@ -175,7 +176,7 @@ template <int dim>
 double Coefficient<dim>::value (const Point<dim> &,
                                 const unsigned int) const
 {
-        return 1;
+    return 1;
 }
 }
 
@@ -201,7 +202,7 @@ template <int dim>
 class LaplaceProblem
 {
 public:
-    LaplaceProblem (const unsigned int deg , ParameterHandler &, std::string &);
+    LaplaceProblem (const unsigned int , ParameterHandler &, std::string &, std::string &, std::string &);
     void run ();
 
 private:
@@ -210,6 +211,8 @@ private:
     void assemble_multigrid ();
     void solve ();
     void refine_grid ();
+    //void solution_gradient();
+    void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
 
     ConditionalOStream                        pcout;
@@ -241,9 +244,10 @@ private:
 
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     double domain_size_left , domain_size_right;
-    std::string Problemtype;
+    std::string Problemtype, PreconditionerType, LammpsInputFilename;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
+
 };
 
 
@@ -251,7 +255,7 @@ class ParameterReader: public Subscriptor
 {
 public:
     ParameterReader(ParameterHandler &);
-    void read_parameters(const std::string);
+    void read_parameters(const std::string &);
 
 private:
     void declare_parameters();
@@ -283,6 +287,8 @@ void ParameterReader::declare_parameters()
     {
         prm.declare_entry ("Problem","Step16",Patterns::Selection("Step16 | GaussianCharges"),
                            "Problem definition for RHS Function");
+
+        prm.declare_entry ("Dimension", "2", Patterns::Integer(), "Problem space dimension");
     }
     prm.leave_subsection();
 
@@ -295,17 +301,31 @@ void ParameterReader::declare_parameters()
 
     prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),
                       "Polynomial degree of finite elements");
+
+    prm.enter_subsection("Solver input data");
+    {
+        prm.declare_entry ("Preconditioner","GMG",Patterns::Selection("GMG | Jacobi"),
+                           "Preconditioner type to be applied to the system matrix");
+    }
+    prm.leave_subsection();
+
+    prm.enter_subsection("Lammps data");
+    {
+        prm.declare_entry ("Lammps input file","atom_8.data",Patterns::Selection("atom_8.data | atom_1000.data"),
+                           "Lammps input file with atoms, charges and positions");
+    }
+    prm.leave_subsection();
 }
 
-void ParameterReader::read_parameters(const std::string parameter_file)
+void ParameterReader::read_parameters(const std::string &parameter_file)
 {
     declare_parameters();
-    prm.read_input(parameter_file);
+    prm.parse_input(parameter_file);
 }
 
 
 template <int dim>
-LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype)
+LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile)
     :
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -317,9 +337,13 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     mg_dof_handler (triangulation),
     degree(degree),
     prm(param),
-    Problemtype(Problemtype)
+    Problemtype(Problemtype),
+    PreconditionerType(PreconditionerType),
+    LammpsInputFilename(LammpsInputFile)
 
 {
+    pcout<<"Problem type is:   " << Problemtype<<std::endl;
+
     if (Problemtype == "Step16")
     {
         rhs_func   = std::make_shared<Step16::RightHandSide<dim>>();
@@ -372,9 +396,9 @@ void LaplaceProblem<dim>::setup_system ()
     const unsigned int n_levels = triangulation.n_global_levels();
 
     mg_interface_matrices.resize(0, n_levels-1);
-    mg_interface_matrices.clear ();
+    mg_interface_matrices.clear_elements ();
     mg_matrices.resize(0, n_levels-1);
-    mg_matrices.clear ();
+    mg_matrices.clear_elements ();
 
     for (unsigned int level=0; level<n_levels; ++level)
     {
@@ -551,8 +575,8 @@ void LaplaceProblem<dim>::assemble_multigrid ()
 
 
             empty_constraints.distribute_local_to_global (cell_matrix,
-                                         local_dof_indices,
-                                         mg_interface_matrices[cell->level()]);
+                    local_dof_indices,
+                    mg_interface_matrices[cell->level()]);
         }
 
     for (unsigned int i=0; i<triangulation.n_global_levels(); ++i)
@@ -568,63 +592,71 @@ void LaplaceProblem<dim>::assemble_multigrid ()
 template <int dim>
 void LaplaceProblem<dim>::solve ()
 {
-    MGTransferPrebuilt<vector_t> mg_transfer(hanging_node_constraints, mg_constrained_dofs);
-    mg_transfer.build_matrices(mg_dof_handler);
+    SolverControl solver_control (500, 1e-8*system_rhs.l2_norm(), false);
+    SolverCG<vector_t> solver (solver_control);
 
-    matrix_t &coarse_matrix = mg_matrices[0];
+    if(PreconditionerType == "GMG")
+    {
 
-    SolverControl coarse_solver_control (1000, 1e-10, false, false);
-    SolverCG<vector_t> coarse_solver(coarse_solver_control);
-    PreconditionIdentity id;
-    MGCoarseGridLACIteration<SolverCG<vector_t>,vector_t> coarse_grid_solver(coarse_solver,
+       // MGTransferPrebuilt<vector_t> mg_transfer(hanging_node_constraints, mg_constrained_dofs);
+        MGTransferPrebuilt<vector_t> mg_transfer( mg_constrained_dofs);     // Marked Deprecated due to unused constraints Matrix
+        mg_transfer.build_matrices(mg_dof_handler);
+
+        matrix_t &coarse_matrix = mg_matrices[0];
+
+        SolverControl coarse_solver_control (1000, 1e-10, false, false);
+        SolverCG<vector_t> coarse_solver(coarse_solver_control);
+        PreconditionIdentity id;
+        MGCoarseGridLACIteration<SolverCG<vector_t>,vector_t> coarse_grid_solver(coarse_solver,
             coarse_matrix,
             id);
 
-    typedef LA::MPI::PreconditionJacobi Smoother;
-    MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother;
-    mg_smoother.initialize(mg_matrices, Smoother::AdditionalData(0.5));
-    mg_smoother.set_steps(2);
+        typedef LA::MPI::PreconditionJacobi Smoother;
+        MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother;
+        mg_smoother.initialize(mg_matrices, Smoother::AdditionalData(0.5));
+        mg_smoother.set_steps(2);
 
-    mg::Matrix<vector_t> mg_matrix(mg_matrices);
-    mg::Matrix<vector_t> mg_interface_up(mg_interface_matrices);
-    mg::Matrix<vector_t> mg_interface_down(mg_interface_matrices);
+        mg::Matrix<vector_t> mg_matrix(mg_matrices);
+        mg::Matrix<vector_t> mg_interface_up(mg_interface_matrices);
+        mg::Matrix<vector_t> mg_interface_down(mg_interface_matrices);
 
-    Multigrid<vector_t > mg(mg_dof_handler,
+        /*
+        Multigrid<vector_t > mg(mg_dof_handler,
                             mg_matrix,
                             coarse_grid_solver,
                             mg_transfer,
                             mg_smoother,
                             mg_smoother);
-    mg.set_edge_matrices(mg_interface_down, mg_interface_up);
+                            */ // Marked deprecated due to not needed DOFHandler
 
-    PreconditionMG<dim, vector_t, MGTransferPrebuilt<vector_t> >
-    preconditioner(mg_dof_handler, mg, mg_transfer);
+        Multigrid<vector_t > mg(mg_matrix,
+                            coarse_grid_solver,
+                            mg_transfer,
+                            mg_smoother,
+                            mg_smoother);
 
+        mg.set_edge_matrices(mg_interface_down, mg_interface_up);
 
-    SolverControl solver_control (500, 1e-8*system_rhs.l2_norm(), false);
-    SolverCG<vector_t> solver (solver_control);
+        PreconditionMG<dim, vector_t, MGTransferPrebuilt<vector_t> >
+        preconditioner(mg_dof_handler, mg, mg_transfer);
 
-    if (false)
-    {
-        /*
-         TrilinosWrappers::PreconditionAMG prec;
-
-         TrilinosWrappers::PreconditionAMG::AdditionalData Amg_data;
-         Amg_data.elliptic = true;
-         Amg_data.higher_order_elements = true;
-         Amg_data.smoother_sweeps = 2;
-         Amg_data.aggregation_threshold = 0.02;
-
-         prec.initialize (system_matrix,
-                          Amg_data);
-         solver.solve (system_matrix, solution, system_rhs, prec);
-        */
-    }
-    else
-    {
         solver.solve (system_matrix, solution, system_rhs,
                       preconditioner);
+
     }
+
+    else if (PreconditionerType == "Jacobi")
+    {
+        typedef LA::MPI::PreconditionJacobi JacobiPreconditioner;
+        JacobiPreconditioner preconditionJacobi;
+        preconditionJacobi.initialize (system_matrix, JacobiPreconditioner::AdditionalData(0.6));
+
+        solver.solve (system_matrix, solution, system_rhs,
+                      preconditionJacobi);
+
+    }
+
+
     pcout << "   Starting value " << solver_control.initial_value() << std::endl;
     pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
     pcout << "   Convergence value " << solver_control.last_value() << std::endl;
@@ -660,8 +692,108 @@ void LaplaceProblem<dim>::refine_grid ()
 
     triangulation.execute_coarsening_and_refinement ();
 }
+/*
+template <int dim>
+class Function_Map : public Function<dim>
+{
+public:
+    Function_Map(Function<dim> & scalar_function,int selected_component,int n_components);
+    double value (const Point<dim> &p, int component) const
+    {
+        if (component == selected_component)
+            return scalar_function.gradient(p);
+        else
+            return 0.0;
+    }
+};
 
 
+template <int dim>
+void LaplaceProblem<dim>::solution_gradient()
+{
+    DoFHandler<dim> dof_vector(triangulation);
+    Vector<double> potential = solution;
+    FEFieldFunction<dim> fe_field(dof_vector,potential);
+
+    QGauss<dim>  quadrature(1+degree);
+    Vector<double> grad_solution;
+
+    VectorFunctionFromScalarFunctionObject func_map(std_cxx1x::bind(&FEFieldFunction::gradient,
+                                                                    fe_field,
+                                                                    std_cxx1x::_1), 0, 3);
+
+    VectorTools::project(dof_vector, constraints,quadrature,fe_field,grad_solution );
+
+}
+
+*/
+
+template <int dim>
+void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
+{
+
+    std::ifstream file(filename);
+    unsigned int count = 0;
+    std::string input;
+    unsigned int number_of_atoms = 0;
+    double a , b;
+    std::vector<unsigned int> atom_types;
+    std::vector<double> charges;
+    Point<dim> p;
+    std::vector<Point<dim> > atom_positions;
+
+if(dim == 3)
+    {
+
+    if(file.is_open())
+        {
+            while(!file.eof())
+                {
+                    if(count == 2)
+                        {
+                            file >> number_of_atoms;
+                            std::cout<< "Number of atoms: " << number_of_atoms<< std::endl;
+                            atom_types.resize(number_of_atoms, 0);
+                            charges.resize(number_of_atoms, 0.0);
+                            atom_positions.resize(number_of_atoms);
+                        }
+                    else if(count >= 35)
+                        {
+                            for(unsigned int i = 0; i < number_of_atoms; ++i)
+                                {
+                                    file >> a ;
+                                    file >> b;
+                                    file >> atom_types[i];
+                                    file >> charges[i];
+                                    file >> p(0);
+                                    file >> p(1);
+                                    file >> p(2);
+
+                                    atom_positions.push_back(p);
+
+                                    /*
+                                    std::cout<< "atom types: "<< atom_types[i]<< "  "<<
+                                                "charges: "<<charges[i]<< "  "<<
+                                                "atom pos: "<<p<<std::endl;
+                                                */
+
+                                }
+                        }
+                    else
+                        {
+                            file >> input;
+                            //std::cout<< input << "  "<< count<<std::endl;
+                        }
+                    count++;
+                }
+        }
+    else
+        std::cout<<"Unable to open the file."<< std::endl;
+    file.close();
+    }
+else
+    std::cout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+}
 
 template <int dim>
 void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
@@ -718,7 +850,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
                                  Utilities::int_to_string (cycle, 5) +
                                  ".visit");
         std::ofstream visit_master (visit_master_filename.c_str());
-        data_out.write_visit_record (visit_master, filenames);
+        //data_out.write_visit_record (visit_master, filenames);        // Marked Deprectaed
+        DataOutBase::write_visit_record (visit_master, filenames);
 
         //std::cout << "   wrote " << pvtu_master_filename << std::endl;
 
@@ -735,21 +868,21 @@ void LaplaceProblem<dim>::run ()
     domain_size_right     = prm.get_double ("Domain limit right");
     number_of_global_refinement =prm.get_integer("Number of global refinement");
     prm.leave_subsection ();
-    std::cout << "No. of global refinement is: " << number_of_global_refinement << std::endl;
-    std::cout<<"Domain size: "<<std::endl<<"Left: "<<domain_size_left
-             <<std::endl<<"Right: "<<domain_size_right<<std::endl;
-
 
     prm.enter_subsection ("Misc");
     number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
     prm.leave_subsection ();
-    std::cout << "No. of adaptive refinement cycles are: " << number_of_adaptive_refinement_cycles << std::endl;
 
+    Timer timer;
+
+    read_lammps_input_file(LammpsInputFilename);
 
 
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
         // first mesh size 4^2 = 16*16*16 and then 2 refinements
     {
+        timer.start();
+
         pcout << "Cycle " << cycle << ':' << std::endl;
 
         if (cycle == 0)
@@ -774,7 +907,14 @@ void LaplaceProblem<dim>::run ()
         assemble_multigrid ();
 
         solve ();
-        //output_results (cycle);
+
+        timer.stop();
+        std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
+        std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+        timer.reset();
+
+        //solution_gradient();
+        output_results (cycle);
     }
 }
 }
@@ -790,26 +930,46 @@ int main (int argc, char *argv[])
         using namespace Step50;
 
         //deallog.depth_console(3);
+
         AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
 
-        std::string parame_name (argv[1]);
+        std::string parameter_name (argv[1]);
 
         ParameterHandler prm;
         ParameterReader param(prm);
-        param.read_parameters(parame_name);
+        param.read_parameters(parameter_name);
 
         prm.enter_subsection("Problem Selection");
         std::string Problemtype= (prm.get("Problem"));
+        const unsigned int d = prm.get_integer("Dimension");    // set default to two in parameter class
         prm.leave_subsection();
-        std::cout<<"Problem type is:   " << Problemtype<<std::endl;
+
+        prm.enter_subsection("Solver input data");
+        std::string PreconditionerType = (prm.get("Preconditioner"));
+        prm.leave_subsection();
+
+        prm.enter_subsection("Lammps data");
+        std::string LammpsInputFile = (prm.get("Lammps input file"));
+        prm.leave_subsection();
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
-        std::cout<<"Polynomial degree: "<<Degree<<std::endl;
 
-        LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype);
+        if (d == 2)
+        {
+            LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
+            laplace_problem.run ();
+        }
+        else if (d == 3)
+        {
+            LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
+            laplace_problem.run ();
+        }
+        else if (d != 2 && d != 3)
+        {
+            AssertThrow(false, ExcMessage("Only 2d and 3d dimensions are supported."));
+        }
 
 
-        laplace_problem.run ();
     }
     catch (std::exception &exc)
     {
