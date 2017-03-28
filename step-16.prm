@@ -7,16 +7,16 @@ subsection Geometry
 	set Number of global refinement = 4
 
 	#Left limit of domain
-	set Domain limit left = -2.5
+	set Domain limit left = 0.0
 
 	#Right limit of domain
-	set Domain limit right = 2.5
+	set Domain limit right = 1.0
 end
 
 subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
-	set Number of Adaptive Refinement = 8
+	set Number of Adaptive Refinement = 5
 end
 
 # Polynomial degree of finite elements
@@ -25,8 +25,15 @@ end
 # Solver input data which shall give flexibility to have different 
 # preconditioners, problem type and solver input variables
 
+subsection Solver input data
+	set Preconditioner = GMG
+end
+
 subsection Problem Selection
-	set Problem = GaussianCharges
+	set Problem = Step16
+	set Dimension = 2
 end	
 
-
+subsection Lammps data
+	set Lammps input file = atom_8.data
+end
