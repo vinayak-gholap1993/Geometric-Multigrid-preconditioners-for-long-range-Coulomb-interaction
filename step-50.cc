@@ -247,6 +247,7 @@ private:
     std::string Problemtype, PreconditionerType, LammpsInputFilename;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
+    bool lammpsinput = 1;
 
 };
 
@@ -356,6 +357,78 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     }
 }
 
+
+template <int dim>
+void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
+{
+
+    std::ifstream file(filename);
+    unsigned int count = 0;
+    std::string input;
+    static unsigned int number_of_atoms = 0;
+    double a = 0.0, b = 0.0;
+    unsigned int * atom_types;
+    double * charges;
+    Point<dim> p;
+    static std::vector<Point<dim> > atom_positions;
+
+
+if(dim == 3)
+    {
+
+    if(file.is_open())
+        {
+
+            while(!file.eof())
+                {
+                    if(count == 2)
+                        {
+                            file >> number_of_atoms;
+                            std::cout<< "Number of atoms: " << number_of_atoms<< std::endl;
+                            atom_types = new unsigned int [number_of_atoms]();
+                            charges = new double [number_of_atoms]();
+                            atom_positions.resize(number_of_atoms);
+                        }
+                    else if(count >= 35)
+                        {
+                            for(unsigned int i = 0; i < number_of_atoms; ++i)
+                                {
+                                    file >> a ;
+                                    file >> b;
+                                    file >> atom_types[i];
+                                    file >> charges[i];
+                                    file >> p(0);
+                                    file >> p(1);
+                                    file >> p(2);
+
+                                    atom_positions.push_back(p);
+
+                                    /*
+                                    std::cout<< "atom types: "<< atom_types[i]<< "  "<<
+                                                "charges: "<<charges[i]<< "  "<<
+                                                "atom pos: "<<p<<std::endl;
+                                                */
+
+                                }
+                        }
+                    else
+                        {
+                            file >> input;
+                            //std::cout<< input << "  "<< count<<std::endl;
+                        }
+                    count++;
+                }
+        }
+    else
+        std::cout<<"Unable to open the file."<< std::endl;
+    file.close();
+    }
+else
+    {
+        lammpsinput = 0;
+        std::cout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+    }
+}
 
 
 template <int dim>
@@ -467,9 +540,22 @@ void LaplaceProblem<dim>::assemble_system ()
 
 
 
-                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                    if(lammpsinput == 0)
+                        {
+                            cell_rhs(i) += (fe_values.shape_value(i,q_point) *
                                     rhs_func->value(fe_values.quadrature_point (q_point)) *
                                     fe_values.JxW(q_point));
+                        }
+
+                    else if (lammpsinput != 0)
+                        {
+                            //std::cout << "Lammps Flag true"<<std::endl;
+                            cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                                             *
+                                            fe_values.JxW(q_point));
+                        }
+
+
                 }
 
             cell->get_dof_indices (local_dof_indices);
@@ -728,72 +814,7 @@ void LaplaceProblem<dim>::solution_gradient()
 
 */
 
-template <int dim>
-void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
-{
 
-    std::ifstream file(filename);
-    unsigned int count = 0;
-    std::string input;
-    unsigned int number_of_atoms = 0;
-    double a , b;
-    std::vector<unsigned int> atom_types;
-    std::vector<double> charges;
-    Point<dim> p;
-    std::vector<Point<dim> > atom_positions;
-
-if(dim == 3)
-    {
-
-    if(file.is_open())
-        {
-            while(!file.eof())
-                {
-                    if(count == 2)
-                        {
-                            file >> number_of_atoms;
-                            std::cout<< "Number of atoms: " << number_of_atoms<< std::endl;
-                            atom_types.resize(number_of_atoms, 0);
-                            charges.resize(number_of_atoms, 0.0);
-                            atom_positions.resize(number_of_atoms);
-                        }
-                    else if(count >= 35)
-                        {
-                            for(unsigned int i = 0; i < number_of_atoms; ++i)
-                                {
-                                    file >> a ;
-                                    file >> b;
-                                    file >> atom_types[i];
-                                    file >> charges[i];
-                                    file >> p(0);
-                                    file >> p(1);
-                                    file >> p(2);
-
-                                    atom_positions.push_back(p);
-
-                                    /*
-                                    std::cout<< "atom types: "<< atom_types[i]<< "  "<<
-                                                "charges: "<<charges[i]<< "  "<<
-                                                "atom pos: "<<p<<std::endl;
-                                                */
-
-                                }
-                        }
-                    else
-                        {
-                            file >> input;
-                            //std::cout<< input << "  "<< count<<std::endl;
-                        }
-                    count++;
-                }
-        }
-    else
-        std::cout<<"Unable to open the file."<< std::endl;
-    file.close();
-    }
-else
-    std::cout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
-}
 
 template <int dim>
 void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
