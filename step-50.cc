@@ -207,7 +207,7 @@ public:
 
 private:
     void setup_system ();
-    void assemble_system ();
+    void assemble_system (unsigned int &, std::vector<Point<dim> > &, double *);
     void assemble_multigrid ();
     void solve ();
     void refine_grid ();
@@ -248,6 +248,11 @@ private:
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
     bool lammpsinput = 1;
+    unsigned int number_of_atoms;
+    std::vector<Point<dim> > atom_positions;
+    unsigned int * atom_types;
+    double * charges;
+    const double r_c = 0.5;
 
 };
 
@@ -355,6 +360,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
         rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>();
         coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
     }
+
+
 }
 
 
@@ -365,12 +372,11 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
     std::ifstream file(filename);
     unsigned int count = 0;
     std::string input;
-    static unsigned int number_of_atoms = 0;
+
     double a = 0.0, b = 0.0;
-    unsigned int * atom_types;
-    double * charges;
+
     Point<dim> p;
-    static std::vector<Point<dim> > atom_positions;
+
 
 
 if(dim == 3)
@@ -494,7 +500,7 @@ void LaplaceProblem<dim>::setup_system ()
 
 
 template <int dim>
-void LaplaceProblem<dim>::assemble_system ()
+void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::vector<Point<dim> > &atom_positions, double * charges)
 {
     const QGauss<dim>  quadrature_formula(degree+1);
 
@@ -513,6 +519,11 @@ void LaplaceProblem<dim>::assemble_system ()
 
     std::vector<double>    coefficient_values (n_q_points);
 
+    this->number_of_atoms = number_of_atoms;
+    this->atom_positions = atom_positions;
+    this->charges = charges;
+
+    const double denominator = 1.0 / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -549,10 +560,14 @@ void LaplaceProblem<dim>::assemble_system ()
 
                     else if (lammpsinput != 0)
                         {
-                            //std::cout << "Lammps Flag true"<<std::endl;
-                            cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                             *
-                                            fe_values.JxW(q_point));
+                            for(unsigned int k = 0; k < number_of_atoms; ++k)
+                                {
+                                    const Point<dim> q = atom_positions[k];
+
+                                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                                                    4.0 * (numbers::PI) * denominator * exp(-(q.square()) / (r_c * r_c)) * this->charges[k] *
+                                                    fe_values.JxW(q_point));
+                                }
                         }
 
 
@@ -924,7 +939,7 @@ void LaplaceProblem<dim>::run ()
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-        assemble_system ();
+        assemble_system (number_of_atoms, atom_positions, charges);
         assemble_multigrid ();
 
         solve ();
