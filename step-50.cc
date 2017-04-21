@@ -395,7 +395,7 @@ if(dim == 3)
                             charges = new double [number_of_atoms]();
                             atom_positions.resize(number_of_atoms);
                         }
-                    else if(count >= 35)
+                    else if(count == 35)
                         {
                             for(unsigned int i = 0; i < number_of_atoms; ++i)
                                 {
@@ -407,13 +407,16 @@ if(dim == 3)
                                     file >> p(1);
                                     file >> p(2);
 
-                                    atom_positions.push_back(p);
+                                    atom_positions[i] = p;
 
                                     /*
+                                    const Point<dim> test1 = atom_positions[i];
+                                    std::cout << test1 <<std::endl;
+
                                     std::cout<< "atom types: "<< atom_types[i]<< "  "<<
                                                 "charges: "<<charges[i]<< "  "<<
                                                 "atom pos: "<<p<<std::endl;
-                                                */
+                                    */
 
                                 }
                         }
@@ -518,12 +521,21 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
     std::vector<double>    coefficient_values (n_q_points);
+    std::vector<double>    density_values (n_q_points);
 
     this->number_of_atoms = number_of_atoms;
     this->atom_positions = atom_positions;
     this->charges = charges;
 
-    const double denominator = 1.0 / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
+    double r = 0.0, r_squared = 0.0;
+    const double r_c_squared_inverse = 1.0 / (r_c * r_c);
+
+    /*
+    const Point<dim> test = atom_positions[3];
+    std::cout<< "This data: \n" << this->number_of_atoms << " " << this->charges[3] << " " << test << std::endl;
+    */
+
+    const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -539,6 +551,42 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
             coeff_func->value_list (fe_values.get_quadrature_points(),
                                     coefficient_values);
 
+            // evaluate RHS function at quadrature points.
+            if(lammpsinput == 0)
+                {
+                    rhs_func->value_list(fe_values.get_quadrature_points(),
+                                         density_values);
+                }
+            else if(lammpsinput != 0)
+                {
+                    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+                    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+                        {
+                            density_values[q_points] = 0.;
+                            r = 0.0;
+                            r_squared = 0.0;
+
+                            // FIXME: figure out which cells have non-zero contribution from density for which atoms
+                            // maybe keep std::set<unsigned int> attached to a cell and in loop below only
+                            // go over atoms which have non-zero contribution.
+                            // for starters, do this association during setup_system(), i.e.
+                            // after each adaptive refinement.
+                            // TODO: add 1 unit test with 8 atoms and several refinement steps
+                            // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
+                            // make sure the solution agrees with analytical solution
+                            for(unsigned int k = 0; k < number_of_atoms; ++k)
+                            {
+                                const Point<dim> Xi = atom_positions[k];
+                                r = Xi.distance(quadrature_points[q_points]);
+                                r_squared = r * r;
+
+                                density_values[q_points] +=  constant_value *
+                                                             exp(-r_squared * r_c_squared_inverse) *
+                                                             this->charges[k];
+                            }
+                        }
+                }
+
 
             for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
                 for (unsigned int i=0; i<dofs_per_cell; ++i)
@@ -549,27 +597,9 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
                                              fe_values.shape_grad(j,q_point) *
                                              fe_values.JxW(q_point));
 
-
-
-                    if(lammpsinput == 0)
-                        {
                             cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                    rhs_func->value(fe_values.quadrature_point (q_point)) *
-                                    fe_values.JxW(q_point));
-                        }
-
-                    else if (lammpsinput != 0)
-                        {
-                            for(unsigned int k = 0; k < number_of_atoms; ++k)
-                                {
-                                    const Point<dim> q = atom_positions[k];
-
-                                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                                    4.0 * (numbers::PI) * denominator * exp(-(q.square()) / (r_c * r_c)) * this->charges[k] *
-                                                    fe_values.JxW(q_point));
-                                }
-                        }
-
+                                           density_values[q_point] *
+                                           fe_values.JxW(q_point));
 
                 }
 
