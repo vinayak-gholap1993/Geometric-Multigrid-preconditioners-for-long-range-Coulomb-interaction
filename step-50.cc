@@ -140,6 +140,8 @@ using namespace dealii;
 
 const double r_c = 0.5;
 
+const double r_c_squared_inverse = 1.0 / (r_c * r_c);
+
 
 template <int dim>
 class RightHandSide : public Function<dim>
@@ -163,12 +165,14 @@ public:
 template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
 {
-    double radial_distance_squared = 0.0, return_value = 0.0;
+    double radial_distance_squared = 0.0, return_value = 0.0, constant_value = 0.0;
 
 
     radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
 
-    return_value = (8.0 * exp((-4.0 * radial_distance_squared)/ (r_c * r_c)) - exp((-radial_distance_squared)/(r_c * r_c)))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
+    constant_value = radial_distance_squared * r_c_squared_inverse;
+
+    return_value = (8.0 * exp(-4.0 * constant_value ) - exp(-constant_value)/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5))) ;
     return return_value;
 }
 
@@ -252,7 +256,7 @@ private:
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
     double * charges;
-    const double r_c = 0.5;
+    double r_c;
 
 };
 
@@ -302,6 +306,9 @@ void ParameterReader::declare_parameters()
     {
         prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),
                            "Number of Adaptive refinement cycles to be done");
+
+        prm.declare_entry ("smoothing length", "0.5", Patterns::Double(),
+                           "The smoothing length parameter for each Gaussian atom");
     }
     prm.leave_subsection();
 
@@ -937,6 +944,7 @@ void LaplaceProblem<dim>::run ()
 
     prm.enter_subsection ("Misc");
     number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
+    r_c = prm.get_double ("smoothing length");
     prm.leave_subsection ();
 
     Timer timer;
