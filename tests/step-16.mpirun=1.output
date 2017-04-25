@@ -1,10 +1,4 @@
 Problem type is:   Step16
-Polynomial degree: 1
-No. of global refinement is: 4
-Domain size: 
-Left: 0
-Right: 1
-No. of adaptive refinement cycles are: 5
 Cycle 0:
    Number of active cells:       256
    Number of degrees of freedom: 289 (by level: 4, 9, 25, 81, 289)

@@ -25,8 +25,11 @@ end
 # Solver input data which shall give flexibility to have different 
 # preconditioners, problem type and solver input variables
 
+subsection Solver input data
+	set Preconditioner = GMG
+end
+
 subsection Problem Selection
 	set Problem = GaussianCharges
+	set Dimension = 2
 end	
-
-
