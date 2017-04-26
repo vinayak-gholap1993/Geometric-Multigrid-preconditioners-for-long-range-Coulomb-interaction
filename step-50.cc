@@ -43,6 +43,7 @@
 #include <deal.II/grid/grid_out.h>
 #include <deal.II/grid/grid_refinement.h>
 #include <deal.II/grid/tria_boundary_lib.h>
+#include <deal.II/grid/cell_id.h>
 
 #include <deal.II/dofs/dof_accessor.h>
 #include <deal.II/dofs/dof_tools.h>
@@ -89,6 +90,7 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <math.h>
 #include <memory>
 #include <string>
+#include <set>
 
 
 
@@ -210,7 +212,7 @@ public:
     void run ();
 
 private:
-    void setup_system ();
+    void setup_system (unsigned int &, std::vector<Point<dim> > &, double *);
     void assemble_system (unsigned int &, std::vector<Point<dim> > &, double *);
     void assemble_multigrid ();
     void solve ();
@@ -251,12 +253,13 @@ private:
     std::string Problemtype, PreconditionerType, LammpsInputFilename;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
-    bool lammpsinput = 1;
+    bool lammpsinput;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
     double * charges;
-    double r_c;
+    double r_c, nonzero_density_radius_parameter;
+    std::set<CellId> nonzero_density_cells;
 
 };
 
@@ -309,6 +312,9 @@ void ParameterReader::declare_parameters()
 
         prm.declare_entry ("smoothing length", "0.5", Patterns::Double(),
                            "The smoothing length parameter for each Gaussian atom");
+
+        prm.declare_entry ("Nonzero Density radius parameter around each charge","3",Patterns::Double(),
+                           "Set the parameter to localize the density around each charge where it is nonzero");
     }
     prm.leave_subsection();
 
@@ -324,7 +330,7 @@ void ParameterReader::declare_parameters()
 
     prm.enter_subsection("Lammps data");
     {
-        prm.declare_entry ("Lammps input file","atom_8.data",Patterns::Selection("atom_8.data | atom_1000.data"),
+        prm.declare_entry ("Lammps input file","atom_8.data",Patterns::Anything(),
                            "Lammps input file with atoms, charges and positions");
     }
     prm.leave_subsection();
@@ -391,7 +397,7 @@ if(dim == 3)
 
     if(file.is_open())
         {
-
+            lammpsinput = 1;
             while(!file.eof())
                 {
                     if(count == 2)
@@ -436,19 +442,22 @@ if(dim == 3)
                 }
         }
     else
-        std::cout<<"Unable to open the file."<< std::endl;
+        {
+            lammpsinput = 0;
+            pcout<<"Unable to open the file."<< std::endl;
+        }
     file.close();
     }
 else
     {
         lammpsinput = 0;
-        std::cout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
     }
 }
 
 
 template <int dim>
-void LaplaceProblem<dim>::setup_system ()
+void LaplaceProblem<dim>::setup_system (unsigned int &number_of_atoms, std::vector<Point<dim> > &atom_positions, double * charges)
 {
     mg_dof_handler.distribute_dofs (fe);
     mg_dof_handler.distribute_mg_dofs (fe);
@@ -464,11 +473,14 @@ void LaplaceProblem<dim>::setup_system ()
     DoFTools::make_hanging_node_constraints (mg_dof_handler, hanging_node_constraints);
     DoFTools::make_hanging_node_constraints (mg_dof_handler, constraints);
 
-    typename FunctionMap<dim>::type      dirichlet_boundary;
+    //typename FunctionMap<dim>::type      dirichlet_boundary;
+    std::set<types::boundary_id>         dirichlet_boundary;
+    typename FunctionMap<dim>::type      dirichlet_boundary_functions;
     ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
-    dirichlet_boundary[0] = &homogeneous_dirichlet_bc;
+    dirichlet_boundary.insert(0);
+    dirichlet_boundary_functions[0] = &homogeneous_dirichlet_bc;
     VectorTools::interpolate_boundary_values (mg_dof_handler,
-            dirichlet_boundary,
+            dirichlet_boundary_functions,
             constraints);
     constraints.close ();
     hanging_node_constraints.close ();
@@ -479,7 +491,8 @@ void LaplaceProblem<dim>::setup_system ()
 
 
     mg_constrained_dofs.clear();
-    mg_constrained_dofs.initialize(mg_dof_handler, dirichlet_boundary);
+    mg_constrained_dofs.initialize(mg_dof_handler);
+    mg_constrained_dofs.make_zero_boundary_constraints(mg_dof_handler, dirichlet_boundary);
 
 
     const unsigned int n_levels = triangulation.n_global_levels();
@@ -505,6 +518,35 @@ void LaplaceProblem<dim>::setup_system ()
                                             dsp,
                                             MPI_COMM_WORLD, true);
     }
+
+    this->number_of_atoms = number_of_atoms;
+    this->atom_positions = atom_positions;
+    this->charges = charges;
+
+/*
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = mg_dof_handler.begin_active(),
+    endc = mg_dof_handler.end();
+
+    double r = 0.0;
+
+    for(; cell!= endc; ++cell)
+        if (cell->is_locally_owned())
+            {
+                for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
+                    {
+                        for(unsigned int i = 0; i < number_of_atoms; ++i)
+                            {
+                                r = 0.0;
+                                const Point<dim> Xi = atom_positions[i];
+                                r = Xi.distance(cell->vertex(vertex_number));
+                                if( r < nonzero_density_radius_parameter * r_c)
+                                   nonzero_density_cells.insert(cell->id());
+
+                            }
+                    }
+            }
+            */
 }
 
 
@@ -558,10 +600,11 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
             coeff_func->value_list (fe_values.get_quadrature_points(),
                                     coefficient_values);
 
+
             // evaluate RHS function at quadrature points.
             if(lammpsinput == 0)
                 {
-                    rhs_func->value_list(fe_values.get_quadrature_points(),
+                    rhs_func->value_list (fe_values.get_quadrature_points(),
                                          density_values);
                 }
             else if(lammpsinput != 0)
@@ -570,8 +613,7 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
                     for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
                         {
                             density_values[q_points] = 0.;
-                            r = 0.0;
-                            r_squared = 0.0;
+
 
                             // FIXME: figure out which cells have non-zero contribution from density for which atoms
                             // maybe keep std::set<unsigned int> attached to a cell and in loop below only
@@ -583,6 +625,9 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
                             // make sure the solution agrees with analytical solution
                             for(unsigned int k = 0; k < number_of_atoms; ++k)
                             {
+                                r = 0.0;
+                                r_squared = 0.0;
+
                                 const Point<dim> Xi = atom_positions[k];
                                 r = Xi.distance(quadrature_points[q_points]);
                                 r_squared = r * r;
@@ -745,7 +790,7 @@ void LaplaceProblem<dim>::solve ()
         SolverControl coarse_solver_control (1000, 1e-10, false, false);
         SolverCG<vector_t> coarse_solver(coarse_solver_control);
         PreconditionIdentity id;
-        MGCoarseGridLACIteration<SolverCG<vector_t>,vector_t> coarse_grid_solver(coarse_solver,
+        MGCoarseGridIterativeSolver<vector_t, SolverCG<vector_t>, matrix_t, PreconditionIdentity > coarse_grid_solver(coarse_solver,
             coarse_matrix,
             id);
 
@@ -945,6 +990,7 @@ void LaplaceProblem<dim>::run ()
     prm.enter_subsection ("Misc");
     number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
     r_c = prm.get_double ("smoothing length");
+    nonzero_density_radius_parameter = prm.get_double("Nonzero Density radius parameter around each charge");
     prm.leave_subsection ();
 
     Timer timer;
@@ -970,7 +1016,7 @@ void LaplaceProblem<dim>::run ()
 
         pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
 
-        setup_system ();
+        setup_system (number_of_atoms, atom_positions, charges);
 
         pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
@@ -983,8 +1029,8 @@ void LaplaceProblem<dim>::run ()
         solve ();
 
         timer.stop();
-        std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
-        std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+        //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
+        //std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
         timer.reset();
 
         //solution_gradient();
