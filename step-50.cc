@@ -135,7 +135,8 @@ double Coefficient<dim>::value (const Point<dim> &p,
 }
 }
 
-
+// Test for two charges at origin with neutral charge system i.e. Homogeneous
+// Dirichlet B.C.
 namespace GaussianCharges
 {
 using namespace dealii;
@@ -174,7 +175,7 @@ double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*compo
 
     constant_value = radial_distance_squared * r_c_squared_inverse;
 
-    return_value = (8.0 * exp(-4.0 * constant_value ) - exp(-constant_value)/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5))) ;
+    return_value = ((8.0 * exp(-4.0 * constant_value ) - exp(-constant_value))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5))) ;
     return return_value;
 }
 
@@ -259,7 +260,7 @@ private:
     unsigned int * atom_types;
     double * charges;
     double r_c, nonzero_density_radius_parameter;
-    std::set<CellId> nonzero_density_cells;
+    //std::set<unsigned int> nonzero_density_cells;
 
 };
 
@@ -344,7 +345,8 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 
 
 template <int dim>
-LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param, std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile)
+LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param,
+                                     std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile)
     :
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -803,14 +805,6 @@ void LaplaceProblem<dim>::solve ()
         mg::Matrix<vector_t> mg_interface_up(mg_interface_matrices);
         mg::Matrix<vector_t> mg_interface_down(mg_interface_matrices);
 
-        /*
-        Multigrid<vector_t > mg(mg_dof_handler,
-                            mg_matrix,
-                            coarse_grid_solver,
-                            mg_transfer,
-                            mg_smoother,
-                            mg_smoother);
-                            */ // Marked deprecated due to not needed DOFHandler
 
         Multigrid<vector_t > mg(mg_matrix,
                             coarse_grid_solver,
