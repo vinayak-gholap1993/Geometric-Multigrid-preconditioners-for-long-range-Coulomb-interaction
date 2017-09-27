@@ -673,13 +673,13 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
 
 
                             //To be checked
-//                                    for(iter = set_atom_indices.begin(); iter != set_atom_indices.end(); ++iter)
+//                                    for(const auto & a : set_atom_indices) // iter = set_atom_indices.begin(); iter != set_atom_indices.end(); ++iter)
 //                                    {
 //                                        //std::cout<< *iter << " ";
 //                                        r = 0.0;
 //                                        r_squared = 0.0;
 
-//                                        const Point<dim> Xi = atom_positions[*iter];
+//                                        const Point<dim> Xi = atom_positions[a];
 //                                        r = Xi.distance(quadrature_points[q_points]);
 //                                        r_squared = r * r;
 
