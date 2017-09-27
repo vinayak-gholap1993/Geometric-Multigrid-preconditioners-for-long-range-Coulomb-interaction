@@ -837,6 +837,9 @@ void LaplaceProblem<dim>::solve ()
     pcout << "   Starting value " << solver_control.initial_value() << std::endl;
     pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
     pcout << "   Convergence value " << solver_control.last_value() << std::endl;
+    pcout << "   L1 solution norm " << solution.l1_norm() << std::endl;
+    pcout << "   L2 solution norm " << solution.l2_norm() << std::endl;
+    pcout << "   LInfinity solution norm " << solution.linfty_norm() << std::endl;
 
     constraints.distribute (solution);
 }
