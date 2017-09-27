@@ -1,0 +1,20 @@
+2D Problem tests
+
+Input:
+For GaussianCharges:
+Domian = (-2.5 * 2.5)^2
+Number of global refinement = 4
+Number of Adaptive Refinement = 8
+smoothing length = 0.5
+Nonzero Density radius parameter around each charge =  3
+Preconditioner = GMG
+Lammps = null
+
+For Step16:
+Domian = (0 * 1)^2
+Number of global refinement = 4
+Number of Adaptive Refinement = 5
+smoothing length = 0.5
+Nonzero Density radius parameter around each charge =  3
+Preconditioner = GMG
+Lammps = null

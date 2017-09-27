@@ -1,0 +1,47 @@
+Problem type is:   Step16
+Unable to open the file.
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 0.141833
+   CG converged in 8 iterations.
+   Convergence value 6.0837e-10
+   L1 solution norm 749.336
+   L2 solution norm 14.9813
+   LInfinity solution norm 0.537171
+Cycle 1:
+   Number of active cells:       4586
+   Number of degrees of freedom: 5694 (by level: 8, 27, 125, 729, 4913, 963)
+   Starting value 0.140894
+   CG converged in 11 iterations.
+   Convergence value 9.93031e-10
+   L1 solution norm 784.926
+   L2 solution norm 15.1782
+   LInfinity solution norm 0.537675
+Cycle 2:
+   Number of active cells:       29443
+   Number of degrees of freedom: 32837 (by level: 8, 27, 125, 729, 4913, 31817, 633)
+   Starting value 0.0645064
+   CG converged in 10 iterations.
+   Convergence value 3.93741e-10
+   L1 solution norm 5915.05
+   L2 solution norm 42.1519
+   LInfinity solution norm 0.537205
+Cycle 3:
+   Number of active cells:       31774
+   Number of degrees of freedom: 35918 (by level: 8, 27, 125, 729, 4913, 33101, 3021)
+   Starting value 0.0603828
+   CG converged in 14 iterations.
+   Convergence value 5.05551e-10
+   L1 solution norm 6048.97
+   L2 solution norm 42.3425
+   LInfinity solution norm 0.537574
+Cycle 4:
+   Number of active cells:       34231
+   Number of degrees of freedom: 38720 (by level: 8, 27, 125, 729, 4913, 34601, 4797)
+   Starting value 0.0576219
+   CG converged in 14 iterations.
+   Convergence value 3.82631e-10
+   L1 solution norm 6167.92
+   L2 solution norm 42.4683
+   LInfinity solution norm 0.537628
