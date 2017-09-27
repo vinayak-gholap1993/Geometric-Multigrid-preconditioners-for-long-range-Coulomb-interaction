@@ -21,12 +21,13 @@
 
 
 
-#include <deal.II/base/quadrature_lib.h>
+
 #include <deal.II/base/function.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/conditional_ostream.h>
-#include<deal.II/base/parameter_handler.h>
+#include <deal.II/base/parameter_handler.h>
+#include <deal.II/base/quadrature_lib.h>
 
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -91,6 +92,7 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <memory>
 #include <string>
 #include <set>
+#include <map>
 
 
 
@@ -213,14 +215,16 @@ public:
     void run ();
 
 private:
-    void setup_system (unsigned int &, std::vector<Point<dim> > &, double *);
-    void assemble_system (unsigned int &, std::vector<Point<dim> > &, double *);
+    void setup_system ();
+    void assemble_system (const std::vector<Point<dim> > &, double *,
+                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &);
     void assemble_multigrid ();
     void solve ();
     void refine_grid ();
     //void solution_gradient();
     void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
+    void rhs_assembly_optimization(const std::vector<Point<dim> > &);
 
     ConditionalOStream                        pcout;
 
@@ -260,7 +264,9 @@ private:
     unsigned int * atom_types;
     double * charges;
     double r_c, nonzero_density_radius_parameter;
-    //std::set<unsigned int> nonzero_density_cells;
+
+    typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
+    std::map<cell_it, std::set<unsigned int> > charges_list_for_each_cell;
 
 };
 
@@ -457,9 +463,57 @@ else
     }
 }
 
+template <int dim>
+void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim> > &atom_positions)
+{
+
+        typename DoFHandler<dim>::active_cell_iterator
+        cell = mg_dof_handler.begin_active(),
+        endc = mg_dof_handler.end();
+
+        double distance_from_vertex_to_atom = 0.0;
+
+        for(; cell!= endc; ++cell)
+            if (cell->is_locally_owned())
+                {
+                    std::set<unsigned int> atom_indices;
+
+                    for(unsigned int i = 0; i < atom_positions.size(); ++i)
+                        {
+                            for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
+                                {
+                                    distance_from_vertex_to_atom = 0.0;
+                                    const Point<dim> Xi = atom_positions[i];
+                                    distance_from_vertex_to_atom = Xi.distance(cell->vertex(vertex_number));
+                                    if( distance_from_vertex_to_atom < nonzero_density_radius_parameter * r_c)
+                                        {                                           
+                                            atom_indices.insert(i);
+                                        }
+                                }
+                        }
+
+                    this->charges_list_for_each_cell.insert(std::make_pair(cell, atom_indices));
+
+                      //clear std::set content for next cell
+                    atom_indices.clear();
+                }
+
+        std::set<unsigned int>::iterator iter;
+        typename std::map<cell_it, std::set<unsigned int> >::iterator it;
+
+        //Print the contents of std::map as cell level, index : atom_list
+        for(it = charges_list_for_each_cell.begin(); it != charges_list_for_each_cell.end(); ++it)
+            {
+                std::cout<< it->first->level()<<" "<<it->first->index() << ":" ;
+                for(iter = it->second.begin(); iter != it->second.end(); ++iter)
+                    std::cout<< *iter << " ";
+                std::cout<< std::endl;
+            }
+
+}
 
 template <int dim>
-void LaplaceProblem<dim>::setup_system (unsigned int &number_of_atoms, std::vector<Point<dim> > &atom_positions, double * charges)
+void LaplaceProblem<dim>::setup_system ()
 {
     mg_dof_handler.distribute_dofs (fe);
     mg_dof_handler.distribute_mg_dofs (fe);
@@ -520,41 +574,13 @@ void LaplaceProblem<dim>::setup_system (unsigned int &number_of_atoms, std::vect
                                             dsp,
                                             MPI_COMM_WORLD, true);
     }
-
-    this->number_of_atoms = number_of_atoms;
-    this->atom_positions = atom_positions;
-    this->charges = charges;
-
-/*
-    typename DoFHandler<dim>::active_cell_iterator
-    cell = mg_dof_handler.begin_active(),
-    endc = mg_dof_handler.end();
-
-    double r = 0.0;
-
-    for(; cell!= endc; ++cell)
-        if (cell->is_locally_owned())
-            {
-                for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
-                    {
-                        for(unsigned int i = 0; i < number_of_atoms; ++i)
-                            {
-                                r = 0.0;
-                                const Point<dim> Xi = atom_positions[i];
-                                r = Xi.distance(cell->vertex(vertex_number));
-                                if( r < nonzero_density_radius_parameter * r_c)
-                                   nonzero_density_cells.insert(cell->id());
-
-                            }
-                    }
-            }
-            */
 }
 
 
 
 template <int dim>
-void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::vector<Point<dim> > &atom_positions, double * charges)
+void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_positions, double * charges,
+                                           const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
 {
     const QGauss<dim>  quadrature_formula(degree+1);
 
@@ -574,9 +600,9 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
     std::vector<double>    coefficient_values (n_q_points);
     std::vector<double>    density_values (n_q_points);
 
-    this->number_of_atoms = number_of_atoms;
     this->atom_positions = atom_positions;
     this->charges = charges;
+//    this->charges_list_for_each_cell = charges_list_for_each_cell;
 
     double r = 0.0, r_squared = 0.0;
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
@@ -587,6 +613,10 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
     */
 
     const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
+
+//    std::set<unsigned int>::iterator iter;
+//    typename std::map<cell_it, std::set<unsigned int> >::iterator it; //To be checked
+//    std::set<unsigned int> set_atom_indices;
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -612,10 +642,10 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
             else if(lammpsinput != 0)
                 {
                     const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+//                    set_atom_indices = this->charges_list_for_each_cell[cell];
                     for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
                         {
-                            density_values[q_points] = 0.;
-
+                            density_values[q_points] = 0.0;
 
                             // FIXME: figure out which cells have non-zero contribution from density for which atoms
                             // maybe keep std::set<unsigned int> attached to a cell and in loop below only
@@ -625,7 +655,8 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
                             // TODO: add 1 unit test with 8 atoms and several refinement steps
                             // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
                             // make sure the solution agrees with analytical solution
-                            for(unsigned int k = 0; k < number_of_atoms; ++k)
+
+                            for(unsigned int k = 0; k < atom_positions.size(); ++k)
                             {
                                 r = 0.0;
                                 r_squared = 0.0;
@@ -638,6 +669,25 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
                                                              exp(-r_squared * r_c_squared_inverse) *
                                                              this->charges[k];
                             }
+
+
+
+                            //To be checked
+//                                    for(iter = set_atom_indices.begin(); iter != set_atom_indices.end(); ++iter)
+//                                    {
+//                                        //std::cout<< *iter << " ";
+//                                        r = 0.0;
+//                                        r_squared = 0.0;
+
+//                                        const Point<dim> Xi = atom_positions[*iter];
+//                                        r = Xi.distance(quadrature_points[q_points]);
+//                                        r_squared = r * r;
+
+//                                        density_values[q_points] +=  constant_value *
+//                                                                     exp(-r_squared * r_c_squared_inverse) *
+//                                                                     this->charges[*iter];
+//                                    }
+
                         }
                 }
 
@@ -1010,14 +1060,16 @@ void LaplaceProblem<dim>::run ()
 
         pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
 
-        setup_system (number_of_atoms, atom_positions, charges);
+        setup_system ();
 
         pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-        assemble_system (number_of_atoms, atom_positions, charges);
+        rhs_assembly_optimization(atom_positions);
+
+        assemble_system (atom_positions, charges, charges_list_for_each_cell);
         assemble_multigrid ();
 
         solve ();
