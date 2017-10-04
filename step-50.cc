@@ -368,7 +368,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     PreconditionerType(PreconditionerType),
     LammpsInputFilename(LammpsInputFile)
 
-{
+{    
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
 
     if (Problemtype == "Step16")
@@ -501,14 +501,14 @@ void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim>
         std::set<unsigned int>::iterator iter;
         typename std::map<cell_it, std::set<unsigned int> >::iterator it;
 
-        //Print the contents of std::map as cell level, index : atom_list
-        for(it = charges_list_for_each_cell.begin(); it != charges_list_for_each_cell.end(); ++it)
-            {
-                std::cout<< it->first->level()<<" "<<it->first->index() << ":" ;
-                for(iter = it->second.begin(); iter != it->second.end(); ++iter)
-                    std::cout<< *iter << " ";
-                std::cout<< std::endl;
-            }
+//        //Print the contents of std::map as cell level, index : atom_list
+//        for(it = charges_list_for_each_cell.begin(); it != charges_list_for_each_cell.end(); ++it)
+//            {
+//                std::cout<< it->first->level()<<" "<<it->first->index() << ":" ;
+//                for(iter = it->second.begin(); iter != it->second.end(); ++iter)
+//                    std::cout<< *iter << " ";
+//                std::cout<< std::endl;
+//            }
 
 }
 
@@ -887,6 +887,9 @@ void LaplaceProblem<dim>::solve ()
     pcout << "   Starting value " << solver_control.initial_value() << std::endl;
     pcout << "   CG converged in " << solver_control.last_step() << " iterations." << std::endl;
     pcout << "   Convergence value " << solver_control.last_value() << std::endl;
+    pcout << "   L1 solution norm " << solution.l1_norm() << std::endl;
+    pcout << "   L2 solution norm " << solution.l2_norm() << std::endl;
+    pcout << "   LInfinity solution norm " << solution.linfty_norm() << std::endl;
 
     constraints.distribute (solution);
 }

@@ -17,6 +17,12 @@ subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
 	set Number of Adaptive Refinement = 8
+
+	#Set the smoothing length parameter for each Gaussian atom charge
+	set smoothing length = 0.5
+
+	#Set the parameter to localize the density around each charge where it is nonzero
+	set Nonzero Density radius parameter around each charge =  3
 end
 
 # Polynomial degree of finite elements
@@ -31,5 +37,10 @@ end
 
 subsection Problem Selection
 	set Problem = GaussianCharges
-	set Dimension = 2
+	set Dimension = 3
 end	
+
+subsection Lammps data
+	set Lammps input file = atom_2.data
+end
+
