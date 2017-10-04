@@ -35,5 +35,5 @@ subsection Problem Selection
 end	
 
 subsection Lammps data
-	set Lammps input file = atom_8.data
+	set Lammps input file = atom_2.data
 end
