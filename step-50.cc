@@ -1036,10 +1036,9 @@ void LaplaceProblem<dim>::run ()
 }
 }
 
-
 int main (int argc, char *argv[])
 {
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 7);
 
     try
     {
@@ -1058,7 +1057,7 @@ int main (int argc, char *argv[])
 
         prm.enter_subsection("Problem Selection");
         std::string Problemtype= (prm.get("Problem"));
-        const unsigned int d = prm.get_integer("Dimension");    // set default to two in parameter class
+        const int d = prm.get_integer("Dimension");    // set default to two in parameter class
         prm.leave_subsection();
 
         prm.enter_subsection("Solver input data");
@@ -1114,3 +1113,5 @@ int main (int argc, char *argv[])
 
     return 0;
 }
+
+
