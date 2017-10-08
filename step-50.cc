@@ -203,8 +203,6 @@ namespace Step50
 {
 using namespace dealii;
 
-
-
 template <int dim>
 class LaplaceProblem
 {
@@ -265,83 +263,7 @@ private:
 };
 
 
-class ParameterReader: public Subscriptor
-{
-public:
-    ParameterReader(ParameterHandler &);
-    void read_parameters(const std::string &);
 
-private:
-    void declare_parameters();
-    ParameterHandler &prm;
-};
-
-ParameterReader::ParameterReader(ParameterHandler &paramhandler)
-    :
-    prm(paramhandler)
-{}
-
-void ParameterReader::declare_parameters()
-{
-    prm.enter_subsection("Geometry");
-    {
-        prm.declare_entry("Number of global refinement","2",Patterns::Integer(),
-                          "The uniform global mesh refinement on the Domain in the power of 4");
-
-        prm.declare_entry("Domain limit left","-1",Patterns::Double(),
-                          "Left limit of domain");
-
-        prm.declare_entry("Domain limit right","1",Patterns::Double(),
-                          "Right limit of domain");
-    }
-    prm.leave_subsection();
-
-
-    prm.enter_subsection("Problem Selection");
-    {
-        prm.declare_entry ("Problem","Step16",Patterns::Selection("Step16 | GaussianCharges"),
-                           "Problem definition for RHS Function");
-
-        prm.declare_entry ("Dimension", "2", Patterns::Integer(), "Problem space dimension");
-    }
-    prm.leave_subsection();
-
-    prm.enter_subsection("Misc");
-    {
-        prm.declare_entry ("Number of Adaptive Refinement","2",Patterns::Integer(),
-                           "Number of Adaptive refinement cycles to be done");
-
-        prm.declare_entry ("smoothing length", "0.5", Patterns::Double(),
-                           "The smoothing length parameter for each Gaussian atom");
-
-        prm.declare_entry ("Nonzero Density radius parameter around each charge","3",Patterns::Double(),
-                           "Set the parameter to localize the density around each charge where it is nonzero");
-    }
-    prm.leave_subsection();
-
-    prm.declare_entry("Polynomial degree", "1", Patterns::Integer(),
-                      "Polynomial degree of finite elements");
-
-    prm.enter_subsection("Solver input data");
-    {
-        prm.declare_entry ("Preconditioner","GMG",Patterns::Selection("GMG | Jacobi"),
-                           "Preconditioner type to be applied to the system matrix");
-    }
-    prm.leave_subsection();
-
-    prm.enter_subsection("Lammps data");
-    {
-        prm.declare_entry ("Lammps input file","atom_8.data",Patterns::Anything(),
-                           "Lammps input file with atoms, charges and positions");
-    }
-    prm.leave_subsection();
-}
-
-void ParameterReader::read_parameters(const std::string &parameter_file)
-{
-    declare_parameters();
-    prm.parse_input(parameter_file);
-}
 
 
 template <int dim>
@@ -394,63 +316,63 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
 
 
 
-if(dim == 3)
+    if(dim == 3)
     {
 
-    if(file.is_open())
+        if(file.is_open())
         {
             lammpsinput = 1;
             while(!file.eof())
+            {
+                if(count == 2)
                 {
-                    if(count == 2)
-                        {
-                            file >> number_of_atoms;
-                            std::cout<< "Number of atoms: " << number_of_atoms<< std::endl;
-                            atom_types = new unsigned int [number_of_atoms]();
-                            charges = new double [number_of_atoms]();
-                            atom_positions.resize(number_of_atoms);
-                        }
-                    else if(count == 35)
-                        {
-                            for(unsigned int i = 0; i < number_of_atoms; ++i)
-                                {
-                                    file >> a ;
-                                    file >> b;
-                                    file >> atom_types[i];
-                                    file >> charges[i];
-                                    file >> p(0);
-                                    file >> p(1);
-                                    file >> p(2);
-
-                                    atom_positions[i] = p;
-
-                                    /*
-                                    const Point<dim> test1 = atom_positions[i];
-                                    std::cout << test1 <<std::endl;
-
-                                    std::cout<< "atom types: "<< atom_types[i]<< "  "<<
-                                                "charges: "<<charges[i]<< "  "<<
-                                                "atom pos: "<<p<<std::endl;
-                                    */
-
-                                }
-                        }
-                    else
-                        {
-                            file >> input;
-                            //std::cout<< input << "  "<< count<<std::endl;
-                        }
-                    count++;
+                    file >> number_of_atoms;
+                    std::cout<< "Number of atoms: " << number_of_atoms<< std::endl;
+                    atom_types = new unsigned int [number_of_atoms]();
+                    charges = new double [number_of_atoms]();
+                    atom_positions.resize(number_of_atoms);
                 }
+                else if(count == 35)
+                {
+                    for(unsigned int i = 0; i < number_of_atoms; ++i)
+                    {
+                        file >> a ;
+                        file >> b;
+                        file >> atom_types[i];
+                        file >> charges[i];
+                        file >> p(0);
+                        file >> p(1);
+                        file >> p(2);
+
+                        atom_positions[i] = p;
+
+                        /*
+                        const Point<dim> test1 = atom_positions[i];
+                        std::cout << test1 <<std::endl;
+
+                        std::cout<< "atom types: "<< atom_types[i]<< "  "<<
+                                    "charges: "<<charges[i]<< "  "<<
+                                    "atom pos: "<<p<<std::endl;
+                        */
+
+                    }
+                }
+                else
+                {
+                    file >> input;
+                    //std::cout<< input << "  "<< count<<std::endl;
+                }
+                count++;
+            }
         }
-    else
+        else
         {
             lammpsinput = 0;
             pcout<<"Unable to open the file."<< std::endl;
         }
-    file.close();
+        file.close();
     }
-else
+    else
     {
         lammpsinput = 0;
         pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
@@ -525,30 +447,30 @@ void LaplaceProblem<dim>::setup_system (unsigned int &number_of_atoms, std::vect
     this->atom_positions = atom_positions;
     this->charges = charges;
 
-/*
-    typename DoFHandler<dim>::active_cell_iterator
-    cell = mg_dof_handler.begin_active(),
-    endc = mg_dof_handler.end();
+    /*
+        typename DoFHandler<dim>::active_cell_iterator
+        cell = mg_dof_handler.begin_active(),
+        endc = mg_dof_handler.end();
 
-    double r = 0.0;
+        double r = 0.0;
 
-    for(; cell!= endc; ++cell)
-        if (cell->is_locally_owned())
-            {
-                for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
-                    {
-                        for(unsigned int i = 0; i < number_of_atoms; ++i)
-                            {
-                                r = 0.0;
-                                const Point<dim> Xi = atom_positions[i];
-                                r = Xi.distance(cell->vertex(vertex_number));
-                                if( r < nonzero_density_radius_parameter * r_c)
-                                   nonzero_density_cells.insert(cell->id());
+        for(; cell!= endc; ++cell)
+            if (cell->is_locally_owned())
+                {
+                    for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
+                        {
+                            for(unsigned int i = 0; i < number_of_atoms; ++i)
+                                {
+                                    r = 0.0;
+                                    const Point<dim> Xi = atom_positions[i];
+                                    r = Xi.distance(cell->vertex(vertex_number));
+                                    if( r < nonzero_density_radius_parameter * r_c)
+                                       nonzero_density_cells.insert(cell->id());
 
-                            }
-                    }
-            }
-            */
+                                }
+                        }
+                }
+                */
 }
 
 
@@ -605,41 +527,41 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
 
             // evaluate RHS function at quadrature points.
             if(lammpsinput == 0)
-                {
-                    rhs_func->value_list (fe_values.get_quadrature_points(),
-                                         density_values);
-                }
+            {
+                rhs_func->value_list (fe_values.get_quadrature_points(),
+                                      density_values);
+            }
             else if(lammpsinput != 0)
+            {
+                const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+                for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
                 {
-                    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
-                    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
-                        {
-                            density_values[q_points] = 0.;
+                    density_values[q_points] = 0.;
 
 
-                            // FIXME: figure out which cells have non-zero contribution from density for which atoms
-                            // maybe keep std::set<unsigned int> attached to a cell and in loop below only
-                            // go over atoms which have non-zero contribution.
-                            // for starters, do this association during setup_system(), i.e.
-                            // after each adaptive refinement.
-                            // TODO: add 1 unit test with 8 atoms and several refinement steps
-                            // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
-                            // make sure the solution agrees with analytical solution
-                            for(unsigned int k = 0; k < number_of_atoms; ++k)
-                            {
-                                r = 0.0;
-                                r_squared = 0.0;
+                    // FIXME: figure out which cells have non-zero contribution from density for which atoms
+                    // maybe keep std::set<unsigned int> attached to a cell and in loop below only
+                    // go over atoms which have non-zero contribution.
+                    // for starters, do this association during setup_system(), i.e.
+                    // after each adaptive refinement.
+                    // TODO: add 1 unit test with 8 atoms and several refinement steps
+                    // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
+                    // make sure the solution agrees with analytical solution
+                    for(unsigned int k = 0; k < number_of_atoms; ++k)
+                    {
+                        r = 0.0;
+                        r_squared = 0.0;
 
-                                const Point<dim> Xi = atom_positions[k];
-                                r = Xi.distance(quadrature_points[q_points]);
-                                r_squared = r * r;
+                        const Point<dim> Xi = atom_positions[k];
+                        r = Xi.distance(quadrature_points[q_points]);
+                        r_squared = r * r;
 
-                                density_values[q_points] +=  constant_value *
-                                                             exp(-r_squared * r_c_squared_inverse) *
-                                                             this->charges[k];
-                            }
-                        }
+                        density_values[q_points] +=  constant_value *
+                                                     exp(-r_squared * r_c_squared_inverse) *
+                                                     this->charges[k];
+                    }
                 }
+            }
 
 
             for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
@@ -651,9 +573,9 @@ void LaplaceProblem<dim>::assemble_system (unsigned int &number_of_atoms, std::v
                                              fe_values.shape_grad(j,q_point) *
                                              fe_values.JxW(q_point));
 
-                            cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                           density_values[q_point] *
-                                           fe_values.JxW(q_point));
+                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                                    density_values[q_point] *
+                                    fe_values.JxW(q_point));
 
                 }
 
@@ -783,7 +705,7 @@ void LaplaceProblem<dim>::solve ()
     if(PreconditionerType == "GMG")
     {
 
-       // MGTransferPrebuilt<vector_t> mg_transfer(hanging_node_constraints, mg_constrained_dofs);
+        // MGTransferPrebuilt<vector_t> mg_transfer(hanging_node_constraints, mg_constrained_dofs);
         MGTransferPrebuilt<vector_t> mg_transfer( mg_constrained_dofs);     // Marked Deprecated due to unused constraints Matrix
         mg_transfer.build_matrices(mg_dof_handler);
 
@@ -793,8 +715,8 @@ void LaplaceProblem<dim>::solve ()
         SolverCG<vector_t> coarse_solver(coarse_solver_control);
         PreconditionIdentity id;
         MGCoarseGridIterativeSolver<vector_t, SolverCG<vector_t>, matrix_t, PreconditionIdentity > coarse_grid_solver(coarse_solver,
-            coarse_matrix,
-            id);
+                coarse_matrix,
+                id);
 
         typedef LA::MPI::PreconditionJacobi Smoother;
         MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother;
@@ -807,10 +729,10 @@ void LaplaceProblem<dim>::solve ()
 
 
         Multigrid<vector_t > mg(mg_matrix,
-                            coarse_grid_solver,
-                            mg_transfer,
-                            mg_smoother,
-                            mg_smoother);
+                                coarse_grid_solver,
+                                mg_transfer,
+                                mg_smoother,
+                                mg_smoother);
 
         mg.set_edge_matrices(mg_interface_down, mg_interface_up);
 
@@ -1035,83 +957,4 @@ void LaplaceProblem<dim>::run ()
     }
 }
 }
-
-int main (int argc, char *argv[])
-{
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 7);
-
-    try
-    {
-        using namespace dealii;
-        using namespace Step50;
-
-        //deallog.depth_console(3);
-
-        AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
-
-        std::string parameter_name (argv[1]);
-
-        ParameterHandler prm;
-        ParameterReader param(prm);
-        param.read_parameters(parameter_name);
-
-        prm.enter_subsection("Problem Selection");
-        std::string Problemtype= (prm.get("Problem"));
-        const int d = prm.get_integer("Dimension");    // set default to two in parameter class
-        prm.leave_subsection();
-
-        prm.enter_subsection("Solver input data");
-        std::string PreconditionerType = (prm.get("Preconditioner"));
-        prm.leave_subsection();
-
-        prm.enter_subsection("Lammps data");
-        std::string LammpsInputFile = (prm.get("Lammps input file"));
-        prm.leave_subsection();
-
-        const unsigned int Degree = prm.get_integer("Polynomial degree");
-
-        if (d == 2)
-        {
-            LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
-            laplace_problem.run ();
-        }
-        else if (d == 3)
-        {
-            LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
-            laplace_problem.run ();
-        }
-        else if (d != 2 && d != 3)
-        {
-            AssertThrow(false, ExcMessage("Only 2d and 3d dimensions are supported."));
-        }
-
-
-    }
-    catch (std::exception &exc)
-    {
-        std::cerr << std::endl << std::endl
-                  << "----------------------------------------------------"
-                  << std::endl;
-        std::cerr << "Exception on processing: " << std::endl
-                  << exc.what() << std::endl
-                  << "Aborting!" << std::endl
-                  << "----------------------------------------------------"
-                  << std::endl;
-        throw;
-    }
-    catch (...)
-    {
-        std::cerr << std::endl << std::endl
-                  << "----------------------------------------------------"
-                  << std::endl;
-        std::cerr << "Unknown exception!" << std::endl
-                  << "Aborting!" << std::endl
-                  << "----------------------------------------------------"
-                  << std::endl;
-        throw;
-    }
-
-    return 0;
-}
-
 

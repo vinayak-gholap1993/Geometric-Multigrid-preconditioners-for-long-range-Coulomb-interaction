@@ -16,7 +16,7 @@ SET(TARGET "step-50")
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 SET(TARGET_SRC
-  ${TARGET}.cc
+  ${TARGET}.cc main.cc
   )
 
 # Define the output that should be cleaned:
