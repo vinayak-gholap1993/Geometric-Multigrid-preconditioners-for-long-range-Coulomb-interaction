@@ -1,6 +1,7 @@
 
-#include "step-50.cc"
+#include "step-50.h"
 using namespace dealii;
+
 
 class ParameterReader: public Subscriptor
 {
@@ -89,8 +90,6 @@ int main (int argc, char *argv[])
     try
     {
 
-        using namespace Step50;
-
         //deallog.depth_console(3);
 
         AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
@@ -117,18 +116,18 @@ int main (int argc, char *argv[])
         const unsigned int Degree = prm.get_integer("Polynomial degree");
 
         std::ostringstream oss;
-        oss << "set Lammps input file = " << "/home/vinayak/Desktop/Project/Dealii-Project" << "/_build/atom_2.data" << std::endl;
+        oss << "set Lammps input file = " << SOURCE_DIR << "/_build/atom_2.data" << std::endl;
         prm.parse_input_from_string(oss.str().c_str());
 
 
         if (d == 2)
         {
-            LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
-            laplace_problem.run ();
+           Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
+           laplace_problem.run ();
         }
         else if (d == 3)
         {
-            LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
+            Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
             laplace_problem.run ();
         }
         else if (d != 2 && d != 3)

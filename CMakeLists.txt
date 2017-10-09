@@ -15,8 +15,10 @@ SET(TARGET "step-50")
 # or switch altogether to the large project CMakeLists.txt file discussed
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
+FILE(GLOB_RECURSE TARGET_SRC  "main.cc" "${TARGET}.cc")
+FILE(GLOB_RECURSE TARGET_INC  "${TARGET}.h")
 SET(TARGET_SRC
-  ${TARGET}.cc main.cc
+  ${TARGET}.cc main.cc ${TARGET}.h
   )
 
 # Define the output that should be cleaned:
