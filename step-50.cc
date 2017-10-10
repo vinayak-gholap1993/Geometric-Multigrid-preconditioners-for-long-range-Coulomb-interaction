@@ -602,7 +602,7 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
 
     this->atom_positions = atom_positions;
     this->charges = charges;
-//    this->charges_list_for_each_cell = charges_list_for_each_cell;
+    this->charges_list_for_each_cell = charges_list_for_each_cell;
 
     double r = 0.0, r_squared = 0.0;
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
@@ -614,9 +614,9 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
 
     const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
 
-//    std::set<unsigned int>::iterator iter;
-//    typename std::map<cell_it, std::set<unsigned int> >::iterator it; //To be checked
-//    std::set<unsigned int> set_atom_indices;
+    std::set<unsigned int>::iterator iter;
+    typename std::map<cell_it, std::set<unsigned int> >::iterator it; //To be checked
+    std::set<unsigned int> set_atom_indices;
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -642,7 +642,7 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
             else if(lammpsinput != 0)
                 {
                     const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
-//                    set_atom_indices = this->charges_list_for_each_cell[cell];
+                    set_atom_indices = this->charges_list_for_each_cell[cell];
                     for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
                         {
                             density_values[q_points] = 0.0;
@@ -656,39 +656,40 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
                             // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
                             // make sure the solution agrees with analytical solution
 
-                            for(unsigned int k = 0; k < atom_positions.size(); ++k)
-                            {
-                                r = 0.0;
-                                r_squared = 0.0;
+//                            for(unsigned int k = 0; k < atom_positions.size(); ++k)
+//                            {
+//                                r = 0.0;
+//                                r_squared = 0.0;
 
-                                const Point<dim> Xi = atom_positions[k];
-                                r = Xi.distance(quadrature_points[q_points]);
-                                r_squared = r * r;
+//                                const Point<dim> Xi = atom_positions[k];
+//                                r = Xi.distance(quadrature_points[q_points]);
+//                                r_squared = r * r;
 
-                                density_values[q_points] +=  constant_value *
-                                                             exp(-r_squared * r_c_squared_inverse) *
-                                                             this->charges[k];
-                            }
+//                                density_values[q_points] +=  constant_value *
+//                                                             exp(-r_squared * r_c_squared_inverse) *
+//                                                             this->charges[k];
+//                            }
 
 
 
                             //To be checked
-//                                    for(const auto & a : set_atom_indices) // iter = set_atom_indices.begin(); iter != set_atom_indices.end(); ++iter)
-//                                    {
-//                                        //std::cout<< *iter << " ";
-//                                        r = 0.0;
-//                                        r_squared = 0.0;
+                                    for(const auto & a : set_atom_indices) // iter = set_atom_indices.begin(); iter != set_atom_indices.end(); ++iter)
+                                    {
+                                        //std::cout<< *iter << " ";
+                                        r = 0.0;
+                                        r_squared = 0.0;
 
-//                                        const Point<dim> Xi = atom_positions[a];
-//                                        r = Xi.distance(quadrature_points[q_points]);
-//                                        r_squared = r * r;
+                                        const Point<dim> Xi = atom_positions[a];
+                                        r = Xi.distance(quadrature_points[q_points]);
+                                        r_squared = r * r;
 
-//                                        density_values[q_points] +=  constant_value *
-//                                                                     exp(-r_squared * r_c_squared_inverse) *
-//                                                                     this->charges[*iter];
-//                                    }
+                                        density_values[q_points] +=  constant_value *
+                                                                     exp(-r_squared * r_c_squared_inverse) *
+                                                                     this->charges[*iter];
+                                    }
 
                         }
+                    set_atom_indices.clear();
                 }
 
 
