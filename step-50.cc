@@ -1,5 +1,5 @@
 
-#include "step-50.h"
+#include "step_50.h"
 
 using namespace dealii;
 

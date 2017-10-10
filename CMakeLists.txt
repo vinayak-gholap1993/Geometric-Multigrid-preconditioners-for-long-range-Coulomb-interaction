@@ -16,9 +16,9 @@ SET(TARGET "step-50")
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 FILE(GLOB_RECURSE TARGET_SRC  "main.cc" "${TARGET}.cc")
-FILE(GLOB_RECURSE TARGET_INC  "${TARGET}.h")
+FILE(GLOB_RECURSE TARGET_INC  "step_50.h")
 SET(TARGET_SRC
-  ${TARGET}.cc main.cc ${TARGET}.h
+  ${TARGET}.cc main.cc step_50.h
   )
 
 # Define the output that should be cleaned:
@@ -60,4 +60,5 @@ DEAL_II_INVOKE_AUTOPILOT()
 
 # Enable testing and descent into tests/ subdirectory:
 ENABLE_TESTING()
+#ADD_SUBDIRECTORY(SOURCE_DIR)
 ADD_SUBDIRECTORY(tests)

@@ -1,5 +1,5 @@
 
-#include "step-50.h"
+#include "step_50.h"
 using namespace dealii;
 
 
@@ -115,9 +115,9 @@ int main (int argc, char *argv[])
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
 
-        std::ostringstream oss;
-        oss << "set Lammps input file = " << SOURCE_DIR << "/_build/atom_2.data" << std::endl;
-        prm.parse_input_from_string(oss.str().c_str());
+//        std::ostringstream oss;
+//        oss << "set Lammps input file = " << SOURCE_DIR << "/_build/atom_2.data" << std::endl;
+//        prm.parse_input_from_string(oss.str().c_str());
 
 
         if (d == 2)
