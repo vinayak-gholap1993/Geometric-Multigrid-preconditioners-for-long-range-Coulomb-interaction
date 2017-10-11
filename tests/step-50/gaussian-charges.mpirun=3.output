@@ -1,0 +1,74 @@
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 2.01366
+   CG converged in 6 iterations.
+   Convergence value 1.93481e-08
+   L1 solution norm 446.25
+   L2 solution norm 14.4067
+   LInfinity solution norm 1.58331
+Cycle 1:
+   Number of active cells:       4320
+   Number of degrees of freedom: 5299 (by level: 8, 27, 125, 729, 4913, 486)
+   Starting value 1.5066
+   CG converged in 9 iterations.
+   Convergence value 3.72005e-09
+   L1 solution norm 578.686
+   L2 solution norm 19.6977
+   LInfinity solution norm 1.58809
+Cycle 2:
+   Number of active cells:       5020
+   Number of degrees of freedom: 6263 (by level: 8, 27, 125, 729, 4913, 1645)
+   Starting value 0.937842
+   CG converged in 9 iterations.
+   Convergence value 7.62471e-09
+   L1 solution norm 981.417
+   L2 solution norm 27.9578
+   LInfinity solution norm 1.59682
+Cycle 3:
+   Number of active cells:       6476
+   Number of degrees of freedom: 8103 (by level: 8, 27, 125, 729, 4913, 3181, 658)
+   Starting value 0.731105
+   CG converged in 10 iterations.
+   Convergence value 1.69871e-09
+   L1 solution norm 1687.11
+   L2 solution norm 38.1721
+   LInfinity solution norm 1.61012
+Cycle 4:
+   Number of active cells:       10466
+   Number of degrees of freedom: 12981 (by level: 8, 27, 125, 729, 4913, 5765, 3834)
+   Starting value 0.459631
+   CG converged in 10 iterations.
+   Convergence value 3.43406e-09
+   L1 solution norm 4113.36
+   L2 solution norm 63.6631
+   LInfinity solution norm 1.6152
+Cycle 5:
+   Number of active cells:       18460
+   Number of degrees of freedom: 22241 (by level: 8, 27, 125, 729, 4913, 8429, 11998)
+   Starting value 0.315381
+   CG converged in 10 iterations.
+   Convergence value 1.99463e-09
+   L1 solution norm 7938.09
+   L2 solution norm 83.5037
+   LInfinity solution norm 1.61846
+Cycle 6:
+   Number of active cells:       33986
+   Number of degrees of freedom: 39627 (by level: 8, 27, 125, 729, 4913, 11897, 23603, 5194)
+   Starting value 0.243772
+   CG converged in 11 iterations.
+   Convergence value 4.94343e-10
+   L1 solution norm 16085.9
+   L2 solution norm 123.188
+   LInfinity solution norm 1.61837
+Cycle 7:
+   Number of active cells:       62476
+   Number of degrees of freedom: 71393 (by level: 8, 27, 125, 729, 4913, 16001, 38153, 23502)
+   Starting value 0.165803
+   CG converged in 11 iterations.
+   Convergence value 4.47448e-10
+   L1 solution norm 33696.3
+   L2 solution norm 183.257
+   LInfinity solution norm 1.61952

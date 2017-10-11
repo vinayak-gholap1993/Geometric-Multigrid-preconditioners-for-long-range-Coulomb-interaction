@@ -16,9 +16,8 @@ SET(TARGET "step-50")
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
 FILE(GLOB_RECURSE TARGET_SRC  "main.cc" "${TARGET}.cc")
-FILE(GLOB_RECURSE TARGET_INC  "step_50.h")
 SET(TARGET_SRC
-  ${TARGET}.cc main.cc step_50.h
+  ${TARGET}.cc main.cc
   )
 
 # Define the output that should be cleaned:
@@ -56,9 +55,10 @@ ENDIF()
 
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(${TARGET})
-DEAL_II_INVOKE_AUTOPILOT()
+#DEAL_II_INVOKE_AUTOPILOT()
 
 # Enable testing and descent into tests/ subdirectory:
 ENABLE_TESTING()
-#ADD_SUBDIRECTORY(SOURCE_DIR)
-ADD_SUBDIRECTORY(tests)
+ADD_SUBDIRECTORY(src)
+ADD_SUBDIRECTORY(tests/main)
+ADD_SUBDIRECTORY(tests/step-50)
