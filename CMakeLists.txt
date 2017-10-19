@@ -15,10 +15,8 @@ SET(TARGET "step-50")
 # or switch altogether to the large project CMakeLists.txt file discussed
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
-FILE(GLOB_RECURSE TARGET_SRC  "main.cc" "${TARGET}.cc")
-SET(TARGET_SRC
-  ${TARGET}.cc main.cc
-  )
+#FILE(GLOB_RECURSE TARGET_SRC  "src/main.cc" "src/${TARGET}.cc")
+#SET(TARGET_SRC  ${TARGET}.cc  main.cc)
 
 # Define the output that should be cleaned:
 SET(CLEAN_UP_FILES *.vtu *.pvtu *.visit)
@@ -60,5 +58,4 @@ PROJECT(${TARGET})
 # Enable testing and descent into tests/ subdirectory:
 ENABLE_TESTING()
 ADD_SUBDIRECTORY(src)
-ADD_SUBDIRECTORY(tests/main)
-ADD_SUBDIRECTORY(tests/step-50)
+ADD_SUBDIRECTORY(tests)

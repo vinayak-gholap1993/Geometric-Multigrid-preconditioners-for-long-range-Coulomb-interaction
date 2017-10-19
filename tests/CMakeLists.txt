@@ -1,5 +1,6 @@
-#tests/main/CMakeLists.txt
+#tests/CMakeLists.txt
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
 SET(TEST_TARGET main)
+SET(TEST_LIBRARIES step-50)
 DEAL_II_PICKUP_TESTS()

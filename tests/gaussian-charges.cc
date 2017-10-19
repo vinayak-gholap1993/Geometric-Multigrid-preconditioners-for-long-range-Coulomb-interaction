@@ -79,7 +79,6 @@ void ParameterReader::declare_parameters()
 void ParameterReader::read_parameters(const std::string &parameter_file)
 {
     declare_parameters();
-    prm.parse_input(parameter_file);
 }
 
 
@@ -88,11 +87,13 @@ void check (const char *p)
   ParameterHandler prm;
   ParameterReader param(prm);
   std::ifstream in(p);
+
   param.read_parameters(in);
+  param.parse_input(in);
 
   std::ostringstream oss;
-  oss << "set Lammps input file = " << SOURCE_DIR << "../_build/atom_2.data" << std::endl;
-  prm.parse_input_from_string(oss.str().c_str());
+  oss << "set Lammps input file = " << SOURCE_DIR << "/atom_2.data" << std::endl;
+  param.parse_input_from_string(oss.str().c_str());
 
 }
 
