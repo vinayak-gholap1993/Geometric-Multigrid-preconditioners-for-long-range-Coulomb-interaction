@@ -93,6 +93,19 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <string>
 #include <set>
 
+using namespace dealii;
+
+class ParameterReader: public Subscriptor
+{
+public:
+    ParameterReader(ParameterHandler &);
+    void read_parameters(const std::string &);
+
+private:
+    void declare_parameters();
+    ParameterHandler &prm;
+};
+
 
 
 namespace Step16
