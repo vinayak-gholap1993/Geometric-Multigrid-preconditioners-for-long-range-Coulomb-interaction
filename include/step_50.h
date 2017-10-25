@@ -100,9 +100,8 @@ class ParameterReader: public Subscriptor
 public:
     ParameterReader(ParameterHandler &);
     void read_parameters(const std::string &);
-
-private:
     void declare_parameters();
+private:
     ParameterHandler &prm;
 };
 

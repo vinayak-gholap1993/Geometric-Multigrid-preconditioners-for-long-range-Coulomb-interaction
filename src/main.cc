@@ -1,5 +1,5 @@
 
-#include "step_50.h"
+#include <step_50.h>
 using namespace dealii;
 
 
@@ -18,6 +18,7 @@ int main (int argc, char *argv[])
 
         ParameterHandler prm;
         ParameterReader param(prm);
+        param.declare_parameters();
         param.read_parameters(parameter_name);
 
         prm.enter_subsection("Problem Selection");
@@ -34,10 +35,6 @@ int main (int argc, char *argv[])
         prm.leave_subsection();
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
-
-//        std::ostringstream oss;
-//        oss << "set Lammps input file = " << SOURCE_DIR << "/atom_2.data" << std::endl;
-//        prm.parse_input_from_string(oss.str().c_str());
 
 
         if (d == 2)
