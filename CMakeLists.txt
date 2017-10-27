@@ -15,9 +15,9 @@ SET(TARGET "step-50")
 # or switch altogether to the large project CMakeLists.txt file discussed
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
-SET(TARGET_SRC
-  ${TARGET}.cc
-  )
+#SET(TARGET_SRC
+#  ${TARGET}.cc
+#  )
 
 # Define the output that should be cleaned:
 SET(CLEAN_UP_FILES *.vtu *.pvtu *.visit)
@@ -54,8 +54,13 @@ ENDIF()
 
 DEAL_II_INITIALIZE_CACHED_VARIABLES()
 PROJECT(${TARGET})
-DEAL_II_INVOKE_AUTOPILOT()
+#DEAL_II_INVOKE_AUTOPILOT()
+
+INCLUDE_DIRECTORIES(
+ ${CMAKE_SOURCE_DIR}/include
+)
 
 # Enable testing and descent into tests/ subdirectory:
 ENABLE_TESTING()
+ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(tests)
