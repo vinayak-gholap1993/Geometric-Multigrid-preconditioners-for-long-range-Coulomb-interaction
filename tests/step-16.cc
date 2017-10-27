@@ -12,8 +12,6 @@ void check ()
   ParameterReader param(prm);
   param.declare_parameters();
 
-  deallog << "DEBUG:" << SOURCE_DIR << std::endl;
-
   //Here create dynamically the list of all parameters required from the prm file for test purpose
   std::ostringstream oss;
   oss << "subsection Geometry" << std::endl
@@ -40,14 +38,45 @@ void check ()
 
   prm.parse_input_from_string(oss.str().c_str());
 
+  prm.enter_subsection("Problem Selection");
+  std::string Problemtype= (prm.get("Problem"));
+  const int d = prm.get_integer("Dimension");    // set default to two in parameter class
+  prm.leave_subsection();
+
+  prm.enter_subsection("Solver input data");
+  std::string PreconditionerType = (prm.get("Preconditioner"));
+  prm.leave_subsection();
+
+  prm.enter_subsection("Lammps data");
+  std::string LammpsInputFile = (prm.get("Lammps input file"));
+  prm.leave_subsection();
+
+  const unsigned int Degree = prm.get_integer("Polynomial degree");
+
+  if (d == 2)
+  {
+     Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
+     laplace_problem.run ();
+  }
+  else if (d == 3)
+  {
+      Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile);
+      laplace_problem.run ();
+  }
+  else if (d != 2 && d != 3)
+  {
+      AssertThrow(false, ExcMessage("Only 2d and 3d dimensions are supported."));
+  }
 }
 
 
-int main ()
+int main (int argc, char *argv[])
 {
-  std::ofstream logfile("output");
-  deallog.attach(logfile);
-  deallog.threshold_double(1.e-10);
+//  std::ofstream logfile("output");
+//  deallog.attach(logfile);
+//  deallog.threshold_double(1.e-10);
+
+  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
   check ();
 

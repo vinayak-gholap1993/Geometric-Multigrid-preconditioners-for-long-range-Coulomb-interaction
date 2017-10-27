@@ -131,7 +131,7 @@ void Step50::LaplaceProblem<dim>::read_lammps_input_file(const std::string& file
                 if(count == 2)
                 {
                     file >> number_of_atoms;
-                    std::cout<< "Number of atoms: " << number_of_atoms<< std::endl;
+                    pcout<< "Number of atoms: " << number_of_atoms<< std::endl;
                     atom_types = new unsigned int [number_of_atoms]();
                     charges = new double [number_of_atoms]();
                     atom_positions.resize(number_of_atoms);
