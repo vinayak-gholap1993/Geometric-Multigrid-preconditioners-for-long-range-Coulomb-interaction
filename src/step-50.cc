@@ -189,7 +189,7 @@ else
 template <int dim>
 void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim> > &atom_positions)
 {
-
+//pcout <<"Inside RHS Opti."<<std::endl;
         typename DoFHandler<dim>::active_cell_iterator
         cell = mg_dof_handler.begin_active(),
         endc = mg_dof_handler.end();
@@ -232,7 +232,7 @@ void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim>
 //                    std::cout<< *iter << " ";
 //                std::cout<< std::endl;
 //            }
-
+//pcout<<"Done RHS Opti."<<std::endl;
 }
 
 template <int dim>
@@ -408,7 +408,7 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
 
                                         density_values[q_points] +=  constant_value *
                                                                      exp(-r_squared * r_c_squared_inverse) *
-                                                                     this->charges[*iter];
+                                                                     this->charges[a];
                                     }
 
                         }
