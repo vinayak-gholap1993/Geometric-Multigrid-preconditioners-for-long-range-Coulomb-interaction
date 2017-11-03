@@ -122,7 +122,7 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
 
 
 
-if(dim == 3)
+//if(dim == 3)
     {
 
     if(file.is_open())
@@ -148,7 +148,8 @@ if(dim == 3)
                                     file >> charges[i];
                                     file >> p(0);
                                     file >> p(1);
-                                    file >> p(2);
+//                                    file >> p(2);
+                                    file>>input;
 
                                     atom_positions[i] = p;
 
@@ -178,11 +179,11 @@ if(dim == 3)
         }
     file.close();
     }
-else
-    {
-        lammpsinput = 0;
-        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
-    }
+//else
+//    {
+//        lammpsinput = 0;
+//        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+//    }
 
 }
 
@@ -233,6 +234,45 @@ void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim>
 //                std::cout<< std::endl;
 //            }
 //pcout<<"Done RHS Opti."<<std::endl;
+}
+
+template <int dim>
+void LaplaceProblem<dim>::grid_output_debug(const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
+{
+    std::map<types::global_dof_index, Point<dim> > support_points;
+    MappingQ1<dim> mapping;
+    DoFTools::map_dofs_to_support_points(mapping, mg_dof_handler, support_points);
+
+    const std::string base_filename =
+          "grid" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+    const std::string filename =  base_filename + ".gp";
+    std::ofstream f(filename.c_str());
+
+    f << "set terminal png size 400,410 enhanced font \"Helvetica,8\"" << std::endl
+          << "set output \"" << base_filename << ".png\"" << std::endl
+          << "set size square" << std::endl
+          << "set view equal xy" << std::endl
+          << "unset xtics" << std::endl
+          << "unset ytics" << std::endl
+          << "plot '-' using 1:2 with lines notitle, '-' with labels point pt 2 offset 1,1 notitle" << std::endl;
+    GridOut().write_gnuplot(triangulation, f);
+    f << "e" << std::endl;
+
+    for (auto it : charges_list_for_each_cell)
+        {
+            f << it.first->center() << " \"";
+            for (auto el : it.second)
+              f << el << ", ";
+            f << "\"\n";
+         }
+
+        f << std::flush;
+
+        //DoFTools::write_gnuplot_dof_support_point_info(f,
+        //                                               support_points);
+
+        f << "e" << std::endl;
+
 }
 
 template <int dim>
@@ -366,6 +406,12 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
                 {
                     const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
                     set_atom_indices = this->charges_list_for_each_cell[cell];
+//                    pcout<<"Printing the cell->atom_indices: "<<std::endl;
+//                    for(const auto & b : set_atom_indices)
+//                        {
+//                            pcout<< b << ", ";
+//                        }
+//                    std::cout<<std::endl;
                     for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
                         {
                             density_values[q_points] = 0.0;
@@ -795,6 +841,7 @@ void LaplaceProblem<dim>::run ()
         pcout << std::endl;
 
         rhs_assembly_optimization(atom_positions);
+        grid_output_debug(charges_list_for_each_cell);
 
         assemble_system (atom_positions, charges, charges_list_for_each_cell);
         assemble_multigrid ();

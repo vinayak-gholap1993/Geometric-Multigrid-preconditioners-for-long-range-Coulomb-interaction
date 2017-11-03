@@ -52,6 +52,7 @@
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/mapping_q1.h>
 
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/data_out.h>
@@ -236,6 +237,7 @@ private:
     void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
     void rhs_assembly_optimization(const std::vector<Point<dim> > &);
+    void grid_output_debug(const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &);
 
     ConditionalOStream                        pcout;
 
