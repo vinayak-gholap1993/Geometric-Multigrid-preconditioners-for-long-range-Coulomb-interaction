@@ -748,6 +748,7 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     data_out.attach_dof_handler (mg_dof_handler);
     data_out.add_data_vector (temp_solution, "solution");
     data_out.add_data_vector (res_ghosted, "res");
+    data_out.add_data_vector (system_rhs, "rhs");
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
         subdomain(i) = triangulation.locally_owned_subdomain();
