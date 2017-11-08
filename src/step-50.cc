@@ -74,7 +74,9 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param,
-                                     std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile)
+                                     std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile,
+                                     double &domain_size_left, double &domain_size_right, unsigned int &number_of_global_refinement, unsigned int &number_of_adaptive_refinement_cycles,
+                                     double &r_c, double &nonzero_density_radius_parameter)
     :
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -85,10 +87,16 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     fe (degree),
     mg_dof_handler (triangulation),
     degree(degree),
-    prm(param),
+    prm(param),    
+    number_of_global_refinement(number_of_global_refinement),
+    number_of_adaptive_refinement_cycles(number_of_adaptive_refinement_cycles),
+    domain_size_left(domain_size_left),
+    domain_size_right(domain_size_right),
     Problemtype(Problemtype),
     PreconditionerType(PreconditionerType),
-    LammpsInputFilename(LammpsInputFile)
+    LammpsInputFilename(LammpsInputFile),
+    r_c(r_c),
+    nonzero_density_radius_parameter(nonzero_density_radius_parameter)
 
 {    
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
@@ -122,7 +130,7 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
 
 
 
-//if(dim == 3)
+if(dim == 3)
     {
 
     if(file.is_open())
@@ -148,8 +156,8 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
                                     file >> charges[i];
                                     file >> p(0);
                                     file >> p(1);
-//                                    file >> p(2);
-                                    file>>input;
+                                    file >> p(2); //For 2d test case commented
+//                                    file>>input;
 
                                     atom_positions[i] = p;
 
@@ -179,11 +187,11 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
         }
     file.close();
     }
-//else
-//    {
-//        lammpsinput = 0;
-//        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
-//    }
+else
+    {
+        lammpsinput = 0;
+        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+    }
 
 }
 
@@ -748,6 +756,19 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     data_out.attach_dof_handler (mg_dof_handler);
     data_out.add_data_vector (temp_solution, "solution");
     data_out.add_data_vector (res_ghosted, "res");
+
+/*    if(number_of_atoms < 10)
+        {
+            vector_t interpolated_rhs;
+            interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+            if (Problemtype == "Step16")
+                Step16::RightHandSide<dim> rhs_trial ();
+            if (Problemtype == "GaussianCharges")
+                GaussianCharges::RightHandSide<dim> rhs_trial ();
+            VectorTools::interpolate (mg_dof_handler, rhs_trial, interpolated_rhs);
+            data_out.add_data_vector (interpolated_rhs, "interpolated_rhs");
+        }
+*/
     data_out.add_data_vector (system_rhs, "rhs");
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
@@ -799,17 +820,6 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 template <int dim>
 void LaplaceProblem<dim>::run ()
 {
-    prm.enter_subsection ("Geometry");
-    domain_size_left     = prm.get_double ("Domain limit left");
-    domain_size_right     = prm.get_double ("Domain limit right");
-    number_of_global_refinement =prm.get_integer("Number of global refinement");
-    prm.leave_subsection ();
-
-    prm.enter_subsection ("Misc");
-    number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
-    r_c = prm.get_double ("smoothing length");
-    nonzero_density_radius_parameter = prm.get_double("Nonzero Density radius parameter around each charge");
-    prm.leave_subsection ();
 
     Timer timer;
 
@@ -842,7 +852,7 @@ void LaplaceProblem<dim>::run ()
         pcout << std::endl;
 
         rhs_assembly_optimization(atom_positions);
-        grid_output_debug(charges_list_for_each_cell);
+//        grid_output_debug(charges_list_for_each_cell);
 
         assemble_system (atom_positions, charges, charges_list_for_each_cell);
         assemble_multigrid ();
