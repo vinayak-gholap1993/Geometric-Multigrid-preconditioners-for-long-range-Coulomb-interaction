@@ -72,7 +72,9 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 
 template <int dim>
 Step50::LaplaceProblem<dim>::LaplaceProblem(const unsigned int degree , ParameterHandler &param,
-                                     std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile)
+                                            std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile,
+                                            double &domain_size_left, double &domain_size_right, unsigned int &number_of_global_refinement, unsigned int &number_of_adaptive_refinement_cycles,
+                                            double &r_c, double &nonzero_density_radius_parameter)
     :
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -84,9 +86,15 @@ Step50::LaplaceProblem<dim>::LaplaceProblem(const unsigned int degree , Paramete
     mg_dof_handler (triangulation),
     degree(degree),
     prm(param),
+    number_of_global_refinement(number_of_global_refinement),
+    number_of_adaptive_refinement_cycles(number_of_adaptive_refinement_cycles),
+    domain_size_left(domain_size_left),
+    domain_size_right(domain_size_right),
     Problemtype(Problemtype),
     PreconditionerType(PreconditionerType),
-    LammpsInputFilename(LammpsInputFile)
+    LammpsInputFilename(LammpsInputFile),
+    r_c(r_c),
+    nonzero_density_radius_parameter(nonzero_density_radius_parameter)
 
 {
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
@@ -704,17 +712,6 @@ void Step50::LaplaceProblem<dim>::output_results (const unsigned int cycle) cons
 template <int dim>
 void Step50::LaplaceProblem<dim>::run ()
 {
-    prm.enter_subsection ("Geometry");
-    domain_size_left     = prm.get_double ("Domain limit left");
-    domain_size_right     = prm.get_double ("Domain limit right");
-    number_of_global_refinement =prm.get_integer("Number of global refinement");
-    prm.leave_subsection ();
-
-    prm.enter_subsection ("Misc");
-    number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
-    r_c = prm.get_double ("smoothing length");
-    nonzero_density_radius_parameter = prm.get_double("Nonzero Density radius parameter around each charge");
-    prm.leave_subsection ();
 
     Timer timer;
 

@@ -220,7 +220,9 @@ template <int dim>
 class LaplaceProblem
 {
 public:
-    LaplaceProblem (const unsigned int , ParameterHandler &, std::string &, std::string &, std::string &);
+    LaplaceProblem (const unsigned int , ParameterHandler &, std::string &, std::string &, std::string &,
+                    double &, double &, unsigned int &, unsigned int &,
+                    double &, double &);
     void run ();
 
 private:
