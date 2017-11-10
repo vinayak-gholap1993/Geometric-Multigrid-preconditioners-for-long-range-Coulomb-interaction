@@ -10,6 +10,9 @@ Cycle 0:
    L1 solution norm 446.25
    L2 solution norm 14.4067
    LInfinity solution norm 1.58331
+   L1 rhs norm 24.5376
+   L2 rhs norm 2.01366
+   LInfinity rhs norm 0.38857
 cutoff radius: 2.5
 Problem type is:   GaussianCharges
 Number of atoms: 2
@@ -22,6 +25,9 @@ Cycle 0:
    L1 solution norm 446.25
    L2 solution norm 14.4067
    LInfinity solution norm 1.58331
+   L1 rhs norm 24.5376
+   L2 rhs norm 2.01366
+   LInfinity rhs norm 0.38857
 cutoff radius: 3
 Problem type is:   GaussianCharges
 Number of atoms: 2
@@ -34,6 +40,9 @@ Cycle 0:
    L1 solution norm 446.25
    L2 solution norm 14.4067
    LInfinity solution norm 1.58331
+   L1 rhs norm 24.5376
+   L2 rhs norm 2.01366
+   LInfinity rhs norm 0.38857
 cutoff radius: 3.5
 Problem type is:   GaussianCharges
 Number of atoms: 2
@@ -46,6 +55,9 @@ Cycle 0:
    L1 solution norm 446.25
    L2 solution norm 14.4067
    LInfinity solution norm 1.58331
+   L1 rhs norm 24.5376
+   L2 rhs norm 2.01366
+   LInfinity rhs norm 0.38857
 cutoff radius: 4
 Problem type is:   GaussianCharges
 Number of atoms: 2
@@ -58,3 +70,6 @@ Cycle 0:
    L1 solution norm 446.25
    L2 solution norm 14.4067
    LInfinity solution norm 1.58331
+   L1 rhs norm 24.5376
+   L2 rhs norm 2.01366
+   LInfinity rhs norm 0.38857
