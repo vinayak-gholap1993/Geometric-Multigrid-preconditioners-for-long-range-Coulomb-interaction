@@ -31,7 +31,7 @@ int main (int argc, char *argv[])
         prm.enter_subsection ("Misc");
         unsigned int number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
         double r_c = prm.get_double ("smoothing length");
-        double nonzero_density_radius_parameter ;//= prm.get_double("Nonzero Density radius parameter around each charge");
+        double nonzero_density_radius_parameter = prm.get_double("Nonzero Density radius parameter around each charge");
         prm.leave_subsection ();
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
