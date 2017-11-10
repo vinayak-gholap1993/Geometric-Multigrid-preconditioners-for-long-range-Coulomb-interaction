@@ -49,10 +49,11 @@ int main (int argc, char *argv[])
         std::string LammpsInputFile = (prm.get("Lammps input file"));
         prm.leave_subsection();
 
-        std::vector<double> r_c_variation {2.0,2.5,3.0,3.5,4.0};
-        for(const auto & i : r_c_variation)
-            {
-                nonzero_density_radius_parameter = i;//prm.get_double("Nonzero Density radius parameter around each charge");
+//        std::vector<double> r_c_variation {2.0,2.5,3.0,3.5,4.0};
+//        for(const auto & i : r_c_variation)
+//            {
+//                nonzero_density_radius_parameter = i;//prm.get_double("Nonzero Density radius parameter around each charge");
+//                std::cout<<"cutoff radius: "<<nonzero_density_radius_parameter<<std::endl;
 
         if (d == 2)
         {
@@ -71,7 +72,7 @@ int main (int argc, char *argv[])
             AssertThrow(false, ExcMessage("Only 2d and 3d dimensions are supported."));
         }
 
-            }
+//            }
 
     }
     catch (std::exception &exc)

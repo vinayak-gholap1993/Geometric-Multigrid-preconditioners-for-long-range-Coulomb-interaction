@@ -1,0 +1,60 @@
+cutoff radius: 2
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 2.01366
+   CG converged in 6 iterations.
+   Convergence value 1.93481e-08
+   L1 solution norm 446.25
+   L2 solution norm 14.4067
+   LInfinity solution norm 1.58331
+cutoff radius: 2.5
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 2.01366
+   CG converged in 6 iterations.
+   Convergence value 1.93481e-08
+   L1 solution norm 446.25
+   L2 solution norm 14.4067
+   LInfinity solution norm 1.58331
+cutoff radius: 3
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 2.01366
+   CG converged in 6 iterations.
+   Convergence value 1.93481e-08
+   L1 solution norm 446.25
+   L2 solution norm 14.4067
+   LInfinity solution norm 1.58331
+cutoff radius: 3.5
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 2.01366
+   CG converged in 6 iterations.
+   Convergence value 1.93481e-08
+   L1 solution norm 446.25
+   L2 solution norm 14.4067
+   LInfinity solution norm 1.58331
+cutoff radius: 4
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 2.01366
+   CG converged in 6 iterations.
+   Convergence value 1.93481e-08
+   L1 solution norm 446.25
+   L2 solution norm 14.4067
+   LInfinity solution norm 1.58331

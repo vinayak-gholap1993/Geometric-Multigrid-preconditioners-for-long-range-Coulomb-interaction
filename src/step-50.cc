@@ -768,8 +768,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
             VectorTools::interpolate (mg_dof_handler, rhs_trial, interpolated_rhs);
             data_out.add_data_vector (interpolated_rhs, "interpolated_rhs");
         }
-*/
     data_out.add_data_vector (system_rhs, "rhs");
+*/
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
         subdomain(i) = triangulation.locally_owned_subdomain();
