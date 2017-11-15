@@ -4,10 +4,146 @@
 #include <step_50.h>
 
 using namespace dealii;
+using namespace Step50;
+
+template <int dim>
+class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
+{
+  private:
+    void setup_system ();
+    void assemble_system (const std::vector<Point<dim> > &atom_positions, double * charges,
+                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell);
+    void refine_grid ();
+    void read_lammps_input_file(const std::string& filename);
+    void rhs_assembly_optimization(const std::vector<Point<dim> > &atom_positions);
+
+    ConditionalOStream                        pcout;
+    parallel::distributed::Triangulation<dim>   triangulation;
+    FE_Q<dim>            fe;
+    DoFHandler<dim>    mg_dof_handler;
+
+    typedef LA::MPI::SparseMatrix matrix_t;
+    typedef LA::MPI::Vector vector_t;
+
+    matrix_t system_matrix;
+
+    IndexSet locally_relevant_set;
+
+    ConstraintMatrix     hanging_node_constraints;
+    ConstraintMatrix     constraints;
+
+    vector_t       solution;
+    vector_t       system_rhs;
+
+    const unsigned int degree;
+
+    ParameterHandler &prm;
+
+    unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
+    double domain_size_left , domain_size_right;
+    std::string Problemtype, PreconditionerType, LammpsInputFilename;
+    std::shared_ptr<Function<dim>> rhs_func;
+    std::shared_ptr<Function<dim>> coeff_func;
+    bool lammpsinput;
+    unsigned int number_of_atoms;
+    std::vector<Point<dim> > atom_positions;
+    unsigned int * atom_types;
+    double * charges;
+    double r_c, nonzero_density_radius_parameter;
+
+    typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
+    std::map<cell_it, std::set<unsigned int> > charges_list_for_each_cell;
+
+  public:
+    Test_LaplaceProblem (const unsigned int Degree , ParameterHandler &prm,
+                         std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile,
+                         double &domain_size_left, double &domain_size_right, unsigned int &number_of_global_refinement, unsigned int &number_of_adaptive_refinement_cycles,
+                         double &r_c, double &nonzero_density_radius_parameter) : Step50::LaplaceProblem<dim> (Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile,
+                                                                                                               domain_size_left, domain_size_right, number_of_global_refinement,
+                                                                                                               number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter),
+        pcout (std::cout,(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)== 0)),
+        triangulation (MPI_COMM_WORLD,Triangulation<dim>::
+                      limit_level_difference_at_vertices,
+                      parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
+        fe (Degree),
+        mg_dof_handler (triangulation),
+        degree(Degree),
+        prm(prm),
+        number_of_global_refinement(number_of_global_refinement),
+        number_of_adaptive_refinement_cycles(number_of_adaptive_refinement_cycles),
+        domain_size_left(domain_size_left),
+        domain_size_right(domain_size_right),
+        Problemtype(Problemtype),
+        PreconditionerType(PreconditionerType),
+        LammpsInputFilename(LammpsInputFile),
+        r_c(r_c),
+        nonzero_density_radius_parameter(nonzero_density_radius_parameter)
+    {
+        pcout<<"Problem type is:   " << Problemtype<<std::endl;
+
+        if (Problemtype == "Step16")
+        {
+            rhs_func   = std::make_shared<Step16::RightHandSide<dim>>();
+            coeff_func = std::make_shared<Step16::Coefficient<dim>>();
+        }
+        if(Problemtype == "GaussianCharges")
+        {
+            rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>();
+            coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
+        }
+
+
+    }
+
+    void run ()
+    {
+        Timer timer;
+        read_lammps_input_file(LammpsInputFilename);
+        for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
+            // first mesh size 4^2 = 16*16*16 and then 2 refinements
+        {
+            timer.start();
+
+            pcout << "Cycle " << cycle << ':' << std::endl;
+
+            if (cycle == 0)
+            {
+                GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
+
+                triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
+            }
+            else
+                refine_grid ();
+
+            pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
+
+            setup_system ();
+
+            pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
+            for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
+                pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
+            pcout << std::endl;
+
+            rhs_assembly_optimization(atom_positions);
+            assemble_system (atom_positions, charges, charges_list_for_each_cell);
+
+            timer.stop();
+            //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
+            //std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+            timer.reset();
+
+            // Print the charges densities i.e. system rhs norms to compare with rhs optimization
+            pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l2_norm() << std::endl;
+            pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << system_rhs.linfty_norm() << std::endl;
+        }
+    }
+};
+
+template class Test_LaplaceProblem<2>;
+template class Test_LaplaceProblem<3>;
 
 void check ()
 {
-
   ParameterHandler prm;
   ParameterReader param(prm);
   param.declare_parameters();
@@ -74,15 +210,23 @@ void check ()
 
           if (d == 2)
           {
-              Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-              laplace_problem.run ();
+                Test_LaplaceProblem<2> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
+                                                            number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+                test_laplace_problem.run();
+
+//              Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
+//                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+//              laplace_problem.run ();
           }
           else if (d == 3)
           {
-              Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-              laplace_problem.run ();
+                  Test_LaplaceProblem<3> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
+                                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+                  test_laplace_problem.run();
+
+//              Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
+//                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+//              laplace_problem.run ();
           }
           else if (d != 2 && d != 3)
           {
@@ -96,9 +240,6 @@ void check ()
 
 int main (int argc, char *argv[])
 {
-//  std::ofstream logfile("output");
-//  deallog.attach(logfile);
-//  deallog.threshold_double(1.e-10);
 
   dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
