@@ -229,7 +229,7 @@ public:
                     double &, double &);
     void run ();
 
-private:
+protected:
     void setup_system ();
     void assemble_system (const std::vector<Point<dim> > &, double *,
                           const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &);

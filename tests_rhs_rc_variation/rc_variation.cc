@@ -9,13 +9,12 @@ using namespace Step50;
 template <int dim>
 class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
 {
-  private:
-    void setup_system ();
-    void assemble_system (const std::vector<Point<dim> > &atom_positions, double * charges,
-                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell);
-    void refine_grid ();
-    void read_lammps_input_file(const std::string& filename);
-    void rhs_assembly_optimization(const std::vector<Point<dim> > &atom_positions);
+  protected:
+    using Step50::LaplaceProblem<dim>::read_lammps_input_file;
+    using Step50::LaplaceProblem<dim>::refine_grid;
+    using Step50::LaplaceProblem<dim>::setup_system;
+    using Step50::LaplaceProblem<dim>::rhs_assembly_optimization;
+    using Step50::LaplaceProblem<dim>::assemble_system;
 
     ConditionalOStream                        pcout;
     parallel::distributed::Triangulation<dim>   triangulation;
@@ -95,52 +94,56 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
 
     }
 
-    void run ()
-    {
-        Timer timer;
-        read_lammps_input_file(LammpsInputFilename);
-        for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
-            // first mesh size 4^2 = 16*16*16 and then 2 refinements
-        {
-            timer.start();
+    void run ();
 
-            pcout << "Cycle " << cycle << ':' << std::endl;
-
-            if (cycle == 0)
-            {
-                GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
-
-                triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
-            }
-            else
-                refine_grid ();
-
-            pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
-
-            setup_system ();
-
-            pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
-            for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
-                pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
-            pcout << std::endl;
-
-            rhs_assembly_optimization(atom_positions);
-            assemble_system (atom_positions, charges, charges_list_for_each_cell);
-
-            timer.stop();
-            //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
-            //std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
-            timer.reset();
-
-            // Print the charges densities i.e. system rhs norms to compare with rhs optimization
-            pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l2_norm() << std::endl;
-            pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << system_rhs.linfty_norm() << std::endl;
-        }
-    }
 };
 
 template class Test_LaplaceProblem<2>;
 template class Test_LaplaceProblem<3>;
+
+template <int dim>
+void Test_LaplaceProblem<dim>::run()
+{
+    Timer timer;
+    Step50::LaplaceProblem<dim>::read_lammps_input_file(LammpsInputFilename);
+    for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
+        // first mesh size 4^2 = 16*16*16 and then 2 refinements
+    {
+        timer.start();
+
+        pcout << "Cycle " << cycle << ':' << std::endl;
+
+        if (cycle == 0)
+        {
+            GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
+
+            triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
+        }
+        else
+            Step50::LaplaceProblem<dim>::refine_grid ();
+
+        pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
+
+        Step50::LaplaceProblem<dim>::setup_system ();
+
+        pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
+        for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
+            pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
+        pcout << std::endl;
+
+        Step50::LaplaceProblem<dim>::rhs_assembly_optimization(atom_positions);
+        Step50::LaplaceProblem<dim>::assemble_system (atom_positions, charges, charges_list_for_each_cell);
+
+        timer.stop();
+        //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
+        //std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+        timer.reset();
+
+        // Print the charges densities i.e. system rhs norms to compare with rhs optimization
+        pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l2_norm() << std::endl;
+        pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << system_rhs.linfty_norm() << std::endl;
+    }
+}
 
 void check ()
 {
@@ -175,7 +178,7 @@ void check ()
   prm.parse_input_from_string(oss.str().c_str());
 
   prm.enter_subsection ("Geometry");
-   unsigned int number_of_global_refinement =prm.get_integer("Number of global refinement");
+  unsigned int number_of_global_refinement =prm.get_integer("Number of global refinement");
   double domain_size_left     = prm.get_double ("Domain limit left");
   double domain_size_right     = prm.get_double ("Domain limit right");
   prm.leave_subsection ();
