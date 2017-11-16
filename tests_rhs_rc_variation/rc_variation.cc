@@ -16,42 +16,12 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
     using Step50::LaplaceProblem<dim>::rhs_assembly_optimization;
     using Step50::LaplaceProblem<dim>::assemble_system;
 
-    ConditionalOStream                        pcout;
-    parallel::distributed::Triangulation<dim>   triangulation;
-    FE_Q<dim>            fe;
-    DoFHandler<dim>    mg_dof_handler;
-
-    typedef LA::MPI::SparseMatrix matrix_t;
-    typedef LA::MPI::Vector vector_t;
-
-    matrix_t system_matrix;
-
-    IndexSet locally_relevant_set;
-
-    ConstraintMatrix     hanging_node_constraints;
-    ConstraintMatrix     constraints;
-
-    vector_t       solution;
-    vector_t       system_rhs;
-
     const unsigned int degree;
-
     ParameterHandler &prm;
-
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     double domain_size_left , domain_size_right;
     std::string Problemtype, PreconditionerType, LammpsInputFilename;
-    std::shared_ptr<Function<dim>> rhs_func;
-    std::shared_ptr<Function<dim>> coeff_func;
-    bool lammpsinput;
-    unsigned int number_of_atoms;
-    std::vector<Point<dim> > atom_positions;
-    unsigned int * atom_types;
-    double * charges;
     double r_c, nonzero_density_radius_parameter;
-
-    typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
-    std::map<cell_it, std::set<unsigned int> > charges_list_for_each_cell;
 
   public:
     Test_LaplaceProblem (const unsigned int Degree , ParameterHandler &prm,
@@ -60,12 +30,6 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
                          double &r_c, double &nonzero_density_radius_parameter) : Step50::LaplaceProblem<dim> (Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile,
                                                                                                                domain_size_left, domain_size_right, number_of_global_refinement,
                                                                                                                number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter),
-        pcout (std::cout,(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)== 0)),
-        triangulation (MPI_COMM_WORLD,Triangulation<dim>::
-                      limit_level_difference_at_vertices,
-                      parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
-        fe (Degree),
-        mg_dof_handler (triangulation),
         degree(Degree),
         prm(prm),
         number_of_global_refinement(number_of_global_refinement),
@@ -77,22 +41,7 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
         LammpsInputFilename(LammpsInputFile),
         r_c(r_c),
         nonzero_density_radius_parameter(nonzero_density_radius_parameter)
-    {
-        pcout<<"Problem type is:   " << Problemtype<<std::endl;
-
-        if (Problemtype == "Step16")
-        {
-            rhs_func   = std::make_shared<Step16::RightHandSide<dim>>();
-            coeff_func = std::make_shared<Step16::Coefficient<dim>>();
-        }
-        if(Problemtype == "GaussianCharges")
-        {
-            rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>();
-            coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
-        }
-
-
-    }
+    { }
 
     void run ();
 
@@ -111,28 +60,28 @@ void Test_LaplaceProblem<dim>::run()
     {
         timer.start();
 
-        pcout << "Cycle " << cycle << ':' << std::endl;
+        Step50::LaplaceProblem<dim>::pcout << "Cycle " << cycle << ':' << std::endl;
 
         if (cycle == 0)
         {
-            GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
+            GridGenerator::hyper_cube (Step50::LaplaceProblem<dim>::triangulation,domain_size_left,domain_size_right);
 
-            triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
+            Step50::LaplaceProblem<dim>::triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
         }
         else
             Step50::LaplaceProblem<dim>::refine_grid ();
 
-        pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
+        Step50::LaplaceProblem<dim>::pcout << "   Number of active cells:       "<< Step50::LaplaceProblem<dim>::triangulation.n_global_active_cells() << std::endl;
 
         Step50::LaplaceProblem<dim>::setup_system ();
 
-        pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
-        for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
-            pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
-        pcout << std::endl;
+        Step50::LaplaceProblem<dim>::pcout << "   Number of degrees of freedom: " << Step50::LaplaceProblem<dim>::mg_dof_handler.n_dofs() << " (by level: ";
+        for (unsigned int level=0; level<Step50::LaplaceProblem<dim>::triangulation.n_global_levels(); ++level)
+            Step50::LaplaceProblem<dim>::pcout << Step50::LaplaceProblem<dim>::mg_dof_handler.n_dofs(level) << (level == Step50::LaplaceProblem<dim>::triangulation.n_global_levels()-1 ? ")" : ", ");
+        Step50::LaplaceProblem<dim>::pcout << std::endl;
 
-        Step50::LaplaceProblem<dim>::rhs_assembly_optimization(atom_positions);
-        Step50::LaplaceProblem<dim>::assemble_system (atom_positions, charges, charges_list_for_each_cell);
+        Step50::LaplaceProblem<dim>::rhs_assembly_optimization(Step50::LaplaceProblem<dim>::atom_positions);
+        Step50::LaplaceProblem<dim>::assemble_system (Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell);
 
         timer.stop();
         //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
@@ -140,8 +89,8 @@ void Test_LaplaceProblem<dim>::run()
         timer.reset();
 
         // Print the charges densities i.e. system rhs norms to compare with rhs optimization
-        pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l2_norm() << std::endl;
-        pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << system_rhs.linfty_norm() << std::endl;
+        Step50::LaplaceProblem<dim>::pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.l2_norm() << std::endl;
+        Step50::LaplaceProblem<dim>::pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.linfty_norm() << std::endl;
     }
 }
 
@@ -209,7 +158,7 @@ void check ()
       {
           nonzero_density_radius_parameter = i;//prm.get_double("Nonzero Density radius parameter around each charge");
           if(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
-              std::cout<<"cutoff radius: "<<nonzero_density_radius_parameter<<std::endl;
+              std::cout<<"cutoff radius: "<<std::fixed<<std::setprecision(1)<<nonzero_density_radius_parameter<<std::endl;
 
           if (d == 2)
           {
