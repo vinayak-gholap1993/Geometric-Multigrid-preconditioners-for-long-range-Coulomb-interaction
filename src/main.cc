@@ -5,7 +5,7 @@ using namespace dealii;
 
 int main (int argc, char *argv[])
 {
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 7);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
     try
     {
@@ -53,7 +53,7 @@ int main (int argc, char *argv[])
             {
                 nonzero_density_radius_parameter = i;
                 if(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
-                    std::cout<<"cutoff radius: "<<nonzero_density_radius_parameter<<std::endl;
+                    std::cout<<"cutoff radius: "<<std::fixed<<std::setprecision(1)<<nonzero_density_radius_parameter<<std::endl;
 
         if (d == 2)
         {

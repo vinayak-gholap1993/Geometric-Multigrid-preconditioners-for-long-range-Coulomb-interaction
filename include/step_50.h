@@ -92,6 +92,7 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <memory>
 #include <string>
 #include <set>
+#include <iomanip>
 
 using namespace dealii;
 
@@ -225,7 +226,7 @@ public:
                     double &, double &);
     void run ();
 
-private:
+protected:
     void setup_system (unsigned int &, std::vector<Point<dim> > &, double *);
     void assemble_system (unsigned int &, std::vector<Point<dim> > &, double *);
     void assemble_multigrid ();

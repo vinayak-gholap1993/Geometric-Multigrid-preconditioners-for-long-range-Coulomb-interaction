@@ -575,9 +575,8 @@ void Step50::LaplaceProblem<dim>::solve ()
     pcout << "   L2 solution norm " << solution.l2_norm() << std::endl;
     pcout << "   LInfinity solution norm " << solution.linfty_norm() << std::endl;
     // Print the charges densities i.e. system rhs norms to compare with rhs optimization
-//    pcout << "   L1 rhs norm " << system_rhs.l1_norm() << std::endl;
-//    pcout << "   L2 rhs norm " << system_rhs.l2_norm() << std::endl;
-//    pcout << "   LInfinity rhs norm " << system_rhs.linfty_norm() << std::endl;
+//    pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific <<system_rhs.l2_norm() << std::endl;
+//    pcout << "   LInfinity rhs norm " <<std::setprecision(10) << std::scientific << system_rhs.linfty_norm() << std::endl;
 
     constraints.distribute (solution);
 }
