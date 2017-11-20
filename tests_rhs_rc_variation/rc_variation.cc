@@ -95,7 +95,7 @@ void Test_LaplaceProblem<dim>::run(/*bool &flag_rhs_assembly*/)
 
         // Print the charges densities i.e. system rhs norms to compare with rhs optimization
         Step50::LaplaceProblem<dim>::pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.l2_norm() << std::endl;
-        Step50::LaplaceProblem<dim>::pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.linfty_norm() << std::endl;       
+        Step50::LaplaceProblem<dim>::pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.linfty_norm() << std::endl;
     }
 }
 
@@ -152,6 +152,7 @@ void Test_LaplaceProblem<dim>::charge_density_test(const std::vector<Point<dim> 
                         {
                             density_values[q_points] = 0.0;
                                 {
+                                //With rhs assembly optimization
                                             for(const auto & a : set_atom_indices)
                                             {
                                                 //std::cout<< *iter << " ";
@@ -166,6 +167,20 @@ void Test_LaplaceProblem<dim>::charge_density_test(const std::vector<Point<dim> 
                                                                              exp(-r_squared * r_c_squared_inverse) *
                                                                              charges[a];
                                             }
+                                //Without optimization
+//                                            for(unsigned int k = 0; k < atom_positions.size(); ++k)
+//                                            {
+//                                                r = 0.0;
+//                                                r_squared = 0.0;
+
+//                                                const Point<dim> Xi = atom_positions[k];
+//                                                r = Xi.distance(quadrature_points[q_points]);
+//                                                r_squared = r * r;
+
+//                                                density_values[q_points] +=  constant_value *
+//                                                                             exp(-r_squared * r_c_squared_inverse) *
+//                                                                             charges[k];
+//                                            }
                                 }
                         }
                     set_atom_indices.clear();
@@ -237,7 +252,7 @@ void check ()
 
   prm.enter_subsection("Problem Selection");
   std::string Problemtype= (prm.get("Problem"));
-  const unsigned int d = prm.get_integer("Dimension");    // set default to two in parameter class
+  const unsigned int d = prm.get_integer("Dimension");
   prm.leave_subsection();
 
   prm.enter_subsection("Lammps data");
@@ -245,13 +260,12 @@ void check ()
   prm.leave_subsection();
 
 //  bool flag_rhs_assembly;
-std::vector<double> r_c_variation {2.0,2.5,3.0,3.5,4.0};
-//  std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
+  std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
   for(const auto & i : r_c_variation)
       {
-          nonzero_density_radius_parameter = i;//prm.get_double("Nonzero Density radius parameter around each charge");
+          nonzero_density_radius_parameter = i;
           if(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
-              std::cout<<"cutoff radius: "<<std::fixed<<std::setprecision(1)<<nonzero_density_radius_parameter<<std::endl;
+              std::cout<<"cutoff radius: "<<std::fixed<<std::setprecision(2)<<nonzero_density_radius_parameter<<std::endl;
 
           if (d == 2)
           {
