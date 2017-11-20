@@ -1,0 +1,26 @@
+
+
+#Total_charge_density_AbsErr_L2.dat
+#Here charge_denisities integrated over the domian values with and without rhs assembly optimization are compared
+#Absolute error between these 2 L2 norm values is taken
+
+#total charge density error 
+Cutoff	AbsError{L2}
+2.00	0.0029485280
+2.25	0.0023028340
+2.50	0.0008471030
+2.75	0.0002280930
+3.00	0.0000243720
+3.25	0.0000048960
+3.50	0.0000006710
+3.75	0.0000000900
+4.00	0.0000000030
+4.25	0.0000000010
+4.50	0.0000000000
+4.75	0.0000000000
+5.00	0.0000000000
+5.25	0.0000000000
+5.50	0.0000000000
+5.75	0.0000000000
+6.00	0.0000000000
+
