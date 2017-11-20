@@ -48,12 +48,12 @@ int main (int argc, char *argv[])
         std::string LammpsInputFile = (prm.get("Lammps input file"));
         prm.leave_subsection();
 
-        std::vector<double> r_c_variation {2.0,2.5,3.0,3.5,4.0};
-        for(const auto & i : r_c_variation)
-            {
-                nonzero_density_radius_parameter = i;
-                if(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
-                    std::cout<<"cutoff radius: "<<std::fixed<<std::setprecision(1)<<nonzero_density_radius_parameter<<std::endl;
+//        std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
+//        for(const auto & i : r_c_variation)
+//            {
+//                nonzero_density_radius_parameter = i;
+//                if(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
+//                    std::cout<<"cutoff radius: "<<std::fixed<<std::setprecision(2)<<nonzero_density_radius_parameter<<std::endl;
 
         if (d == 2)
         {
@@ -72,7 +72,7 @@ int main (int argc, char *argv[])
             AssertThrow(false, ExcMessage("Only 2d and 3d dimensions are supported."));
         }
 
-            }
+//            }
 
     }
     catch (std::exception &exc)
