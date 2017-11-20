@@ -15,6 +15,8 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
     using Step50::LaplaceProblem<dim>::setup_system;
     using Step50::LaplaceProblem<dim>::rhs_assembly_optimization;
     using Step50::LaplaceProblem<dim>::assemble_system;
+    void charge_density_test(const std::vector<Point<dim> > & , double * ,
+                             const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > & );
 
     const unsigned int degree;
     ParameterHandler &prm;
@@ -43,7 +45,7 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
         nonzero_density_radius_parameter(nonzero_density_radius_parameter)
     { }
 
-    void run ();
+    void run (/*bool &*/);
 
 };
 
@@ -51,9 +53,10 @@ template class Test_LaplaceProblem<2>;
 template class Test_LaplaceProblem<3>;
 
 template <int dim>
-void Test_LaplaceProblem<dim>::run()
+void Test_LaplaceProblem<dim>::run(/*bool &flag_rhs_assembly*/)
 {
     Timer timer;
+//    Step50::LaplaceProblem<dim>::flag_rhs_assembly = flag_rhs_assembly;
     Step50::LaplaceProblem<dim>::read_lammps_input_file(LammpsInputFilename);
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
         // first mesh size 4^2 = 16*16*16 and then 2 refinements
@@ -81,7 +84,9 @@ void Test_LaplaceProblem<dim>::run()
         Step50::LaplaceProblem<dim>::pcout << std::endl;
 
         Step50::LaplaceProblem<dim>::rhs_assembly_optimization(Step50::LaplaceProblem<dim>::atom_positions);
-        Step50::LaplaceProblem<dim>::assemble_system (Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell);
+        Step50::LaplaceProblem<dim>::assemble_system (Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell
+                                                      /*, Step50::LaplaceProblem<dim>::flag_rhs_assembly*/);
+        charge_density_test(Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell);
 
         timer.stop();
         //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
@@ -90,8 +95,94 @@ void Test_LaplaceProblem<dim>::run()
 
         // Print the charges densities i.e. system rhs norms to compare with rhs optimization
         Step50::LaplaceProblem<dim>::pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.l2_norm() << std::endl;
-        Step50::LaplaceProblem<dim>::pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.linfty_norm() << std::endl;
+        Step50::LaplaceProblem<dim>::pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.linfty_norm() << std::endl;       
     }
+}
+
+//Integrate for each cell the charge density for associated atom list
+//Add all cell contribution charge sensities to check if some error due to rhs assembly optimization
+//Ideally we consider Charge neutral system
+template <int dim>
+void Test_LaplaceProblem<dim>::charge_density_test(const std::vector<Point<dim> > & atom_positions, double * charges,
+                                                   const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
+{
+    const QGauss<dim>  quadrature_formula(degree+1);
+
+    FEValues<dim> fe_values (Step50::LaplaceProblem<dim>::fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points  |  update_JxW_values);
+
+    const unsigned int   dofs_per_cell = Step50::LaplaceProblem<dim>::fe.dofs_per_cell;
+    const unsigned int   n_q_points    = quadrature_formula.size();
+
+    Vector<double>       cell_rhs (dofs_per_cell);
+
+    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+
+    std::vector<double>    coefficient_values (n_q_points);
+    std::vector<double>    density_values (n_q_points);
+
+    double r = 0.0, r_squared = 0.0;
+    const double r_c_squared_inverse = 1.0 / (r_c * r_c);
+
+    const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
+
+    std::set<unsigned int> set_atom_indices;
+    typedef LA::MPI::Vector vector_t;
+    vector_t total_charge_densities;
+    total_charge_densities.reinit(Step50::LaplaceProblem<dim>::mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = Step50::LaplaceProblem<dim>::mg_dof_handler.begin_active(),
+    endc = Step50::LaplaceProblem<dim>::mg_dof_handler.end();
+    for (; cell!=endc; ++cell)
+        if (cell->is_locally_owned())
+        {
+            cell_rhs = 0;
+
+            fe_values.reinit (cell);
+
+            Step50::LaplaceProblem<dim>::coeff_func->value_list (fe_values.get_quadrature_points(),
+                                    coefficient_values);
+
+                    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+                    set_atom_indices =  charges_list_for_each_cell.at(cell);
+
+                    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+                        {
+                            density_values[q_points] = 0.0;
+                                {
+                                            for(const auto & a : set_atom_indices)
+                                            {
+                                                //std::cout<< *iter << " ";
+                                                r = 0.0;
+                                                r_squared = 0.0;
+
+                                                const Point<dim> Xi = atom_positions[a];
+                                                r = Xi.distance(quadrature_points[q_points]);
+                                                r_squared = r * r;
+
+                                                density_values[q_points] +=  constant_value *
+                                                                             exp(-r_squared * r_c_squared_inverse) *
+                                                                             charges[a];
+                                            }
+                                }
+                        }
+                    set_atom_indices.clear();
+
+            for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+                for (unsigned int i=0; i<dofs_per_cell; ++i)
+                {
+                        cell_rhs(i) += (density_values[q_point]* fe_values.JxW(q_point));
+                }
+
+            cell->get_dof_indices (local_dof_indices);
+            Step50::LaplaceProblem<dim>::constraints.distribute_local_to_global (cell_rhs, local_dof_indices, total_charge_densities);
+        }
+
+    total_charge_densities.compress(VectorOperation::add);
+    Step50::LaplaceProblem<dim>::pcout << "Total charge density over the domain after rhs assembly optimization " << std::setprecision(10) << std::scientific
+                                        << total_charge_densities.l2_norm() << std::endl;
 }
 
 void check ()
@@ -153,7 +244,9 @@ void check ()
   std::string LammpsInputFile = (prm.get("Lammps input file"));
   prm.leave_subsection();
 
-  std::vector<double> r_c_variation {2.0,2.5,3.0,3.5,4.0};
+//  bool flag_rhs_assembly;
+std::vector<double> r_c_variation {2.0,2.5,3.0,3.5,4.0};
+//  std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
   for(const auto & i : r_c_variation)
       {
           nonzero_density_radius_parameter = i;//prm.get_double("Nonzero Density radius parameter around each charge");
@@ -165,20 +258,22 @@ void check ()
                 Test_LaplaceProblem<2> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
                                                             number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
                 test_laplace_problem.run();
+//                flag_rhs_assembly = 0;
+//                test_laplace_problem.run(flag_rhs_assembly);
+//                flag_rhs_assembly = 1;
+//                test_laplace_problem.run(flag_rhs_assembly);
 
-//              Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-//                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-//              laplace_problem.run ();
           }
           else if (d == 3)
           {
                   Test_LaplaceProblem<3> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
                                                               number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
                   test_laplace_problem.run();
+//                  flag_rhs_assembly = 0;
+//                  test_laplace_problem.run(flag_rhs_assembly);
+//                  flag_rhs_assembly = 1;
+//                  test_laplace_problem.run(flag_rhs_assembly);
 
-//              Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-//                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-//              laplace_problem.run ();
           }
           else if (d != 2 && d != 3)
           {

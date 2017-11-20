@@ -228,11 +228,12 @@ public:
                     double &, double &, unsigned int &, unsigned int &,
                     double &, double &);
     void run ();
+//    bool flag_rhs_assembly;
 
 protected:
     void setup_system ();
     void assemble_system (const std::vector<Point<dim> > &, double *,
-                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &);
+                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > & /*, bool &*/);
     void assemble_multigrid ();
     void solve ();
     void refine_grid ();

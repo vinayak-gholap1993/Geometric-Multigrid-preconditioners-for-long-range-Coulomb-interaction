@@ -276,9 +276,6 @@ void LaplaceProblem<dim>::grid_output_debug(const std::map<typename parallel::di
 
         f << std::flush;
 
-        //DoFTools::write_gnuplot_dof_support_point_info(f,
-        //                                               support_points);
-
         f << "e" << std::endl;
 
 }
@@ -351,7 +348,8 @@ void LaplaceProblem<dim>::setup_system ()
 
 template <int dim>
 void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_positions, double * charges,
-                                           const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
+                                           const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell
+                                           /*, bool &flag_rhs_assembly*/)
 {
     const QGauss<dim>  quadrature_formula(degree+1);
 
@@ -374,6 +372,7 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
     this->atom_positions = atom_positions;
     this->charges = charges;
     this->charges_list_for_each_cell = charges_list_for_each_cell;
+//    this->flag_rhs_assembly = flag_rhs_assembly;
 
     double r = 0.0, r_squared = 0.0;
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
@@ -433,37 +432,48 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
                             // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
                             // make sure the solution agrees with analytical solution
 
-//                            for(unsigned int k = 0; k < atom_positions.size(); ++k)
+                            //If flag == 0 iterate over all the atoms in the domain, i.e. do not optimize the assembly
+//                            if(flag_rhs_assembly == 0)
+
 //                            {
-//                                r = 0.0;
-//                                r_squared = 0.0;
+//                                                                for(unsigned int k = 0; k < atom_positions.size(); ++k)
+//                                                                {
+//                                                                    r = 0.0;
+//                                                                    r_squared = 0.0;
 
-//                                const Point<dim> Xi = atom_positions[k];
-//                                r = Xi.distance(quadrature_points[q_points]);
-//                                r_squared = r * r;
+//                                                                    const Point<dim> Xi = atom_positions[k];
+//                                                                    r = Xi.distance(quadrature_points[q_points]);
+//                                                                    r_squared = r * r;
 
-//                                density_values[q_points] +=  constant_value *
-//                                                             exp(-r_squared * r_c_squared_inverse) *
-//                                                             this->charges[k];
+//                                                                    density_values[q_points] +=  constant_value *
+//                                                                                                 exp(-r_squared * r_c_squared_inverse) *
+//                                                                                                 this->charges[k];
+//                                                                }
+
 //                            }
 
 
+                            //If flag != 0 iterate only over the neighouring atoms and apply rhs optimization
+//                            if(flag_rhs_assembly != 0)
 
-                            //To be checked
-                                    for(const auto & a : set_atom_indices) // iter = set_atom_indices.begin(); iter != set_atom_indices.end(); ++iter)
-                                    {
-                                        //std::cout<< *iter << " ";
-                                        r = 0.0;
-                                        r_squared = 0.0;
+                                {
+                                    //To be checked
+                                            for(const auto & a : set_atom_indices)
+                                            {
+                                                //std::cout<< *iter << " ";
+                                                r = 0.0;
+                                                r_squared = 0.0;
 
-                                        const Point<dim> Xi = atom_positions[a];
-                                        r = Xi.distance(quadrature_points[q_points]);
-                                        r_squared = r * r;
+                                                const Point<dim> Xi = atom_positions[a];
+                                                r = Xi.distance(quadrature_points[q_points]);
+                                                r_squared = r * r;
 
-                                        density_values[q_points] +=  constant_value *
-                                                                     exp(-r_squared * r_c_squared_inverse) *
-                                                                     this->charges[a];
-                                    }
+                                                density_values[q_points] +=  constant_value *
+                                                                             exp(-r_squared * r_c_squared_inverse) *
+                                                                             this->charges[a];
+                                            }
+                                }
+
 
                         }
                     set_atom_indices.clear();
@@ -610,9 +620,7 @@ void LaplaceProblem<dim>::solve ()
 
     if(PreconditionerType == "GMG")
     {
-
-       // MGTransferPrebuilt<vector_t> mg_transfer(hanging_node_constraints, mg_constrained_dofs);
-        MGTransferPrebuilt<vector_t> mg_transfer( mg_constrained_dofs);     // Marked Deprecated due to unused constraints Matrix
+        MGTransferPrebuilt<vector_t> mg_transfer( mg_constrained_dofs);
         mg_transfer.build_matrices(mg_dof_handler);
 
         matrix_t &coarse_matrix = mg_matrices[0];
@@ -858,7 +866,7 @@ void LaplaceProblem<dim>::run ()
         rhs_assembly_optimization(atom_positions);
 //        grid_output_debug(charges_list_for_each_cell);
 
-        assemble_system (atom_positions, charges, charges_list_for_each_cell);
+        assemble_system (atom_positions, charges, charges_list_for_each_cell /*, flag_rhs_assembly*/);
         assemble_multigrid ();
 
         solve ();
