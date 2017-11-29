@@ -16,7 +16,7 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
     using Step50::LaplaceProblem<dim>::rhs_assembly_optimization;
     using Step50::LaplaceProblem<dim>::assemble_system;
     void charge_density_test(const std::vector<Point<dim> > & , double * ,
-                             const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > & );
+                             const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &, bool & );
 
     const unsigned int degree;
     ParameterHandler &prm;
@@ -45,7 +45,8 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
         nonzero_density_radius_parameter(nonzero_density_radius_parameter)
     { }
 
-    void run (/*bool &*/);
+    void run (bool &);
+    ~Test_LaplaceProblem(){}
 
 };
 
@@ -53,10 +54,10 @@ template class Test_LaplaceProblem<2>;
 template class Test_LaplaceProblem<3>;
 
 template <int dim>
-void Test_LaplaceProblem<dim>::run(/*bool &flag_rhs_assembly*/)
+void Test_LaplaceProblem<dim>::run(bool &flag_rhs_assembly)
 {
     Timer timer;
-//    Step50::LaplaceProblem<dim>::flag_rhs_assembly = flag_rhs_assembly;
+    Step50::LaplaceProblem<dim>::flag_rhs_assembly = flag_rhs_assembly;
     Step50::LaplaceProblem<dim>::read_lammps_input_file(LammpsInputFilename);
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
         // first mesh size 4^2 = 16*16*16 and then 2 refinements
@@ -83,10 +84,13 @@ void Test_LaplaceProblem<dim>::run(/*bool &flag_rhs_assembly*/)
             Step50::LaplaceProblem<dim>::pcout << Step50::LaplaceProblem<dim>::mg_dof_handler.n_dofs(level) << (level == Step50::LaplaceProblem<dim>::triangulation.n_global_levels()-1 ? ")" : ", ");
         Step50::LaplaceProblem<dim>::pcout << std::endl;
 
-        Step50::LaplaceProblem<dim>::rhs_assembly_optimization(Step50::LaplaceProblem<dim>::atom_positions);
+        if(flag_rhs_assembly != 0)
+            Step50::LaplaceProblem<dim>::rhs_assembly_optimization(Step50::LaplaceProblem<dim>::atom_positions);
+
         Step50::LaplaceProblem<dim>::assemble_system (Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell
-                                                      /*, Step50::LaplaceProblem<dim>::flag_rhs_assembly*/);
-        charge_density_test(Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell);
+                                                      ,flag_rhs_assembly);
+        charge_density_test(Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell
+        ,flag_rhs_assembly);
 
         timer.stop();
         //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
@@ -104,7 +108,8 @@ void Test_LaplaceProblem<dim>::run(/*bool &flag_rhs_assembly*/)
 //Ideally we consider Charge neutral system
 template <int dim>
 void Test_LaplaceProblem<dim>::charge_density_test(const std::vector<Point<dim> > & atom_positions, double * charges,
-                                                   const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
+                                                   const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell
+                                                   , bool & flag_rhs_assembly)
 {
     const QGauss<dim>  quadrature_formula(degree+1);
 
@@ -153,6 +158,9 @@ void Test_LaplaceProblem<dim>::charge_density_test(const std::vector<Point<dim> 
                             density_values[q_points] = 0.0;
                                 {
                                 //With rhs assembly optimization
+                                //If flag != 0 iterate only over the neighouring atoms and apply rhs optimization
+                                if(flag_rhs_assembly != 0)
+                                    {
                                             for(const auto & a : set_atom_indices)
                                             {
                                                 //std::cout<< *iter << " ";
@@ -167,20 +175,25 @@ void Test_LaplaceProblem<dim>::charge_density_test(const std::vector<Point<dim> 
                                                                              exp(-r_squared * r_c_squared_inverse) *
                                                                              charges[a];
                                             }
+                                    }
                                 //Without optimization
-//                                            for(unsigned int k = 0; k < atom_positions.size(); ++k)
-//                                            {
-//                                                r = 0.0;
-//                                                r_squared = 0.0;
+                                //If flag == 0 iterate over all the atoms in the domain, i.e. do not optimize the assembly
+                                if(flag_rhs_assembly == 0)
+                                    {
+                                        for(unsigned int k = 0; k < atom_positions.size(); ++k)
+                                            {
+                                                r = 0.0;
+                                                r_squared = 0.0;
 
-//                                                const Point<dim> Xi = atom_positions[k];
-//                                                r = Xi.distance(quadrature_points[q_points]);
-//                                                r_squared = r * r;
+                                                const Point<dim> Xi = atom_positions[k];
+                                                r = Xi.distance(quadrature_points[q_points]);
+                                                r_squared = r * r;
 
-//                                                density_values[q_points] +=  constant_value *
-//                                                                             exp(-r_squared * r_c_squared_inverse) *
-//                                                                             charges[k];
-//                                            }
+                                                density_values[q_points] +=  constant_value *
+                                                        exp(-r_squared * r_c_squared_inverse) *
+                                                        charges[k];
+                                            }
+                                    }
                                 }
                         }
                     set_atom_indices.clear();
@@ -259,7 +272,7 @@ void check ()
   std::string LammpsInputFile = (prm.get("Lammps input file"));
   prm.leave_subsection();
 
-//  bool flag_rhs_assembly;
+  bool flag_rhs_assembly;
   std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
   for(const auto & i : r_c_variation)
       {
@@ -271,22 +284,34 @@ void check ()
           {
                 Test_LaplaceProblem<2> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
                                                             number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-                test_laplace_problem.run();
-//                flag_rhs_assembly = 0;
-//                test_laplace_problem.run(flag_rhs_assembly);
-//                flag_rhs_assembly = 1;
-//                test_laplace_problem.run(flag_rhs_assembly);
+//                test_laplace_problem.run();
+                flag_rhs_assembly = 0;
+                std::cout << "Without rhs assembly optimization" <<std::endl;
+                test_laplace_problem.run(flag_rhs_assembly);
+//                test_laplace_problem.~Test_LaplaceProblem();
+
+                Test_LaplaceProblem<2> test_laplace_problem_with_rhs_optimiation(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
+                                                            number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+                flag_rhs_assembly = 1;
+                std::cout << "Rhs assembly optimization ENABLED" <<std::endl;
+                test_laplace_problem_with_rhs_optimiation.run(flag_rhs_assembly);
 
           }
           else if (d == 3)
           {
                   Test_LaplaceProblem<3> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
                                                               number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-                  test_laplace_problem.run();
-//                  flag_rhs_assembly = 0;
-//                  test_laplace_problem.run(flag_rhs_assembly);
-//                  flag_rhs_assembly = 1;
-//                  test_laplace_problem.run(flag_rhs_assembly);
+//                  test_laplace_problem.run();
+                  flag_rhs_assembly = 0;
+                  std::cout << "Without rhs assembly optimization" <<std::endl;
+                  test_laplace_problem.run(flag_rhs_assembly);
+//                  test_laplace_problem.~Test_LaplaceProblem();
+
+                  Test_LaplaceProblem<3> test_laplace_problem_with_rhs_optimiation(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
+                                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+                  flag_rhs_assembly = 1;
+                  std::cout << "Rhs assembly optimization ENABLED" <<std::endl;
+                  test_laplace_problem_with_rhs_optimiation.run(flag_rhs_assembly);
 
           }
           else if (d != 2 && d != 3)

@@ -108,7 +108,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     }
     if(Problemtype == "GaussianCharges")
     {
-        rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>();
+        rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>(r_c);
         coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
     }
 
@@ -156,7 +156,7 @@ if(dim == 3)
                                     file >> charges[i];
                                     file >> p(0);
                                     file >> p(1);
-                                    file >> p(2); //For 2d test case commented
+                                    file >> p(2); //For 2d test case comment
 //                                    file>>input;
 
                                     atom_positions[i] = p;
@@ -244,6 +244,8 @@ void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim>
 //pcout<<"Done RHS Opti."<<std::endl;
 }
 
+// Output the grid with atoms list for each cell
+// Preferable to run only for one refinement
 template <int dim>
 void LaplaceProblem<dim>::grid_output_debug(const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
 {
@@ -277,6 +279,37 @@ void LaplaceProblem<dim>::grid_output_debug(const std::map<typename parallel::di
         f << std::flush;
 
         f << "e" << std::endl;
+
+//        Output another grid with flag output for atom presence on each cell
+//        if atom assigned to the cell flag 1 else flag 0
+        const std::string base_filename_2 =
+              "grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+        const std::string filename_2 =  base_filename_2 + ".gp";
+        std::ofstream g(filename_2.c_str());
+
+        g << "set terminal png size 400,410 enhanced font \"Helvetica,8\"" << std::endl
+              << "set output \"" << base_filename_2 << ".png\"" << std::endl
+              << "set size square" << std::endl
+              << "set view equal xy" << std::endl
+              << "unset xtics" << std::endl
+              << "unset ytics" << std::endl
+              << "plot '-' using 1:2 with lines notitle, '-' with labels point pt 2 offset 1,1 notitle" << std::endl;
+        GridOut().write_gnuplot(triangulation, g);
+        g << "e" << std::endl;
+
+        for (auto it : charges_list_for_each_cell)
+            {
+                g << it.first->center() << " \"";
+                if(it.second.empty())
+                    g << 0;
+                else
+                    g << 1;
+                g << "\"\n";
+             }
+
+            g << std::flush;
+
+            g << "e" << std::endl;
 
 }
 
@@ -768,20 +801,42 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     data_out.attach_dof_handler (mg_dof_handler);
     data_out.add_data_vector (temp_solution, "solution");
     data_out.add_data_vector (res_ghosted, "res");
-
-/*    if(number_of_atoms < 10)
+//Need to output the analytical solution on mesh only for Gaussian charges problem with or without LAMMPS input
+    if(Problemtype == "GaussianCharges")
         {
-            vector_t interpolated_rhs;
+            if(lammpsinput == 0)
+                {
+                    //Need to implement the analytical sol for the problem on paper
+                }
+            else if (lammpsinput != 0)
+                {
+                   LA::MPI::Vector analytical_sol;
+                   analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set, MPI_COMM_WORLD);
+                   VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution<dim> (r_c), analytical_sol);
+                   LA::MPI::Vector analytical_sol_ghost;
+//                   analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+                   analytical_sol_ghost = analytical_sol;
+                   pcout << "Here!" <<std::endl;
+                   data_out.add_data_vector (analytical_sol_ghost, "Analytical_sol_atoms");
+                }
+        }
+
+//Output the rhs to mesh for visualisation
+/*
+    if(number_of_atoms < 10)
+        {
+            LA::MPI::Vector interpolated_rhs;
             interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
             if (Problemtype == "Step16")
-                Step16::RightHandSide<dim> rhs_trial ();
+                VectorTools::interpolate (mg_dof_handler, Step16::RightHandSide<dim> (), interpolated_rhs);
             if (Problemtype == "GaussianCharges")
-                GaussianCharges::RightHandSide<dim> rhs_trial ();
-            VectorTools::interpolate (mg_dof_handler, rhs_trial, interpolated_rhs);
+                VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
+
             data_out.add_data_vector (interpolated_rhs, "interpolated_rhs");
         }
     data_out.add_data_vector (system_rhs, "rhs");
 */
+
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
         subdomain(i) = triangulation.locally_owned_subdomain();
@@ -864,7 +919,8 @@ void LaplaceProblem<dim>::run ()
         pcout << std::endl;
 
         rhs_assembly_optimization(atom_positions);
-//        grid_output_debug(charges_list_for_each_cell);
+        if(number_of_adaptive_refinement_cycles == 1 && dim == 2)
+            grid_output_debug(charges_list_for_each_cell);
 
         assemble_system (atom_positions, charges, charges_list_for_each_cell /*, flag_rhs_assembly*/);
         assemble_multigrid ();

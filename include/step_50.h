@@ -99,126 +99,9 @@ using namespace dealii::LinearAlgebraTrilinos;
 
 using namespace dealii;
 
-class ParameterReader: public Subscriptor
-{
-public:
-    ParameterReader(ParameterHandler &);
-    void read_parameters(const std::string &);
-    void declare_parameters();
-private:
-    ParameterHandler &prm;
-};
-
-namespace Step16
-{
-using namespace dealii;
-
-template <int dim>
-class RightHandSide : public Function<dim>
-{
-public:
-    RightHandSide():Function<dim>() {}
-    virtual double value (const Point<dim>   &p,
-                          const unsigned int  /*component = 0*/) const;
-};
-
-template <int dim>
-class Coefficient : public Function<dim>
-{
-public:
-    Coefficient () : Function<dim>() {}
-
-    virtual double value (const Point<dim>   &p,
-                          const unsigned int  component = 0) const;
-};
-
-template <int dim>
-double RightHandSide<dim>::value (const Point<dim> &/*p*/,
-                                  const unsigned int /*component = 0*/) const
-{
-    return 10.0;
-}
-
-template <int dim>
-double Coefficient<dim>::value (const Point<dim> &p,
-                                const unsigned int) const
-{
-    if (p.square() < 0.5*0.5)
-        return 5;
-    else
-        return 1;
-}
-}
-
-// Test for two charges at origin with neutral charge system i.e. Homogeneous
-// Dirichlet B.C.
-namespace GaussianCharges
-{
-using namespace dealii;
-
-const double r_c = 0.5;
-
-const double r_c_squared_inverse = 1.0 / (r_c * r_c);
-
-
-template <int dim>
-class RightHandSide : public Function<dim>
-{
-public:
-    RightHandSide():Function<dim>() {}
-    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
-
-template <int dim>
-class Coefficient : public Function<dim>
-{
-public:
-    Coefficient () : Function<dim>() {}
-
-    virtual double value (const Point<dim>   &p,
-                          const unsigned int  component = 0) const;
-};
-
-
-template <int dim>
-double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
-{
-    double radial_distance_squared = 0.0, return_value = 0.0, constant_value = 0.0;
-
-
-    radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
-
-    constant_value = radial_distance_squared * r_c_squared_inverse;
-
-    return_value = ((8.0 * exp(-4.0 * constant_value ) - exp(-constant_value))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5))) ;
-    return return_value;
-}
-
-template <int dim>
-double Coefficient<dim>::value (const Point<dim> &,
-                                const unsigned int) const
-{
-    return 1;
-}
-}
-
-/*
-namespace YetAnotherProblem
-        {
-            template <int dim>
-            class RightHandSide : public Function<dim>
-            {
-
-            }
-        }
-*/
-
-
 namespace Step50
 {
 using namespace dealii;
-
-
 
 template <int dim>
 class LaplaceProblem
@@ -287,6 +170,141 @@ protected:
 
 };
 }
+
+
+class ParameterReader: public Subscriptor
+{
+public:
+    ParameterReader(ParameterHandler &);
+    void read_parameters(const std::string &);
+    void declare_parameters();
+private:
+    ParameterHandler &prm;
+};
+
+namespace Step16
+{
+using namespace dealii;
+
+template <int dim>
+class RightHandSide : public Function<dim>
+{
+public:
+    RightHandSide():Function<dim>() {}
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  /*component = 0*/) const;
+};
+
+template <int dim>
+class Coefficient : public Function<dim>
+{
+public:
+    Coefficient () : Function<dim>() {}
+
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const;
+};
+
+template <int dim>
+double RightHandSide<dim>::value (const Point<dim> &/*p*/,
+                                  const unsigned int /*component = 0*/) const
+{
+    return 10.0;
+}
+
+template <int dim>
+double Coefficient<dim>::value (const Point<dim> &p,
+                                const unsigned int) const
+{
+    if (p.square() < 0.5*0.5)
+        return 5;
+    else
+        return 1;
+}
+}
+
+// Test for two charges at origin with neutral charge system i.e. Homogeneous
+// Dirichlet B.C.
+namespace GaussianCharges
+{
+using namespace dealii;
+
+template <int dim>
+class RightHandSide : public Function<dim>
+{
+public:
+    double r_c;
+    RightHandSide(double _r_c):Function<dim>() { r_c = _r_c;}
+    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
+};
+
+template <int dim>
+class Coefficient : public Function<dim>
+{
+public:
+    Coefficient () : Function<dim>() {}
+
+    virtual double value (const Point<dim>   &p,
+                          const unsigned int  component = 0) const;
+};
+
+//Added analytical solution output to the mesh
+//To visualise the required domain size to ensure correct DBC assumption
+template <int dim>
+class Analytical_Solution : public Function<dim>
+{
+public:
+    double r_c;
+    Analytical_Solution(double _r_c):Function<dim>() {r_c = _r_c;}
+    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
+};
+
+template <int dim>
+double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
+{
+//    const double r_c = Step50::LaplaceProblem<dim>::r_c;
+    const double r_c_squared_inverse = 1.0 / (r_c * r_c);
+    double radial_distance_squared = 0.0, return_value = 0.0, constant_value = 0.0;
+
+    radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
+
+    constant_value = radial_distance_squared * r_c_squared_inverse;
+
+    return_value = ((8.0 * exp(-4.0 * constant_value ) - exp(-constant_value))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5))) ;
+    return return_value;
+}
+
+template <int dim>
+double Coefficient<dim>::value (const Point<dim> &,
+                                const unsigned int) const
+{
+    return 1;
+}
+
+template <int dim>
+double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) const
+{
+//    const double r_c = Step50::LaplaceProblem<dim>::r_c;
+    double radial_distance = std::sqrt(p.square());
+    double return_value = 0;
+
+    return_value = (erf(radial_distance / r_c) / radial_distance) ;
+    return return_value;
+}
+}
+
+/*
+namespace YetAnotherProblem
+        {
+            template <int dim>
+            class RightHandSide : public Function<dim>
+            {
+
+            }
+        }
+*/
+
+
 
 
 
