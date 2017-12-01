@@ -110,13 +110,13 @@ public:
     LaplaceProblem (const unsigned int , ParameterHandler &, std::string &, std::string &, std::string &,
                     double &, double &, unsigned int &, unsigned int &,
                     double &, double &);
-    void run ();
-//    bool flag_rhs_assembly;
+    void run (bool &);
+    bool flag_rhs_assembly;
 
 protected:
     void setup_system ();
     void assemble_system (const std::vector<Point<dim> > &, double *,
-                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > & /*, bool &*/);
+                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > & , bool &);
     void assemble_multigrid ();
     void solve ();
     void refine_grid ();
@@ -125,6 +125,10 @@ protected:
     void output_results (const unsigned int cycle) const;
     void rhs_assembly_optimization(const std::vector<Point<dim> > &);
     void grid_output_debug(const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &);
+    void pack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &,
+		       const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , void *);
+    void unpack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &,
+			 const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , const void *);
 
     ConditionalOStream                        pcout;
 
@@ -260,9 +264,17 @@ public:
 };
 
 template <int dim>
+class Analytical_Solution_without_lammps : public Function<dim>
+{
+public:
+    double r_c;
+    Analytical_Solution_without_lammps(double _r_c):Function<dim>() {r_c = _r_c;}
+    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
+};
+
+template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
 {
-//    const double r_c = Step50::LaplaceProblem<dim>::r_c;
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
     double radial_distance_squared = 0.0, return_value = 0.0, constant_value = 0.0;
 
@@ -284,11 +296,20 @@ double Coefficient<dim>::value (const Point<dim> &,
 template <int dim>
 double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) const
 {
-//    const double r_c = Step50::LaplaceProblem<dim>::r_c;
     double radial_distance = std::sqrt(p.square());
     double return_value = 0;
 
     return_value = (erf(radial_distance / r_c) / radial_distance) ;
+    return return_value;
+}
+
+template <int dim>
+double Analytical_Solution_without_lammps<dim>::value(const Point<dim> &p, const unsigned int) const
+{
+    double radial_distance = std::sqrt(p.square());
+    double return_value = 0;
+
+    return_value = ((erf(2.0 * radial_distance / r_c) - erf(radial_distance / r_c)) / (4.0 * numbers::PI *radial_distance)) ;
     return return_value;
 }
 }

@@ -49,6 +49,9 @@ int main (int argc, char *argv[])
         std::string LammpsInputFile = (prm.get("Lammps input file"));
         prm.leave_subsection();
 
+        //If rhs optimization needed turn flag to 1
+        bool flag_rhs_assembly = 0;
+
 //        std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
 //        for(const auto & i : r_c_variation)
 //            {
@@ -59,13 +62,13 @@ int main (int argc, char *argv[])
         {
             LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
                                               number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-            laplace_problem.run ();
+            laplace_problem.run (flag_rhs_assembly);
         }
         else if (d == 3)
         {
             LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
                                               number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-            laplace_problem.run ();
+            laplace_problem.run (flag_rhs_assembly);
         }
         else if (d != 2 && d != 3)
         {
