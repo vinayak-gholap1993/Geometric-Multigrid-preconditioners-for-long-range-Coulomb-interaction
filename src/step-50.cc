@@ -331,27 +331,20 @@ void LaplaceProblem<dim>::pack_function(const typename parallel::distributed::Tr
     std::set<unsigned int> set_atom_indices;
     std::vector<unsigned int> vec_atom_indices;
     std::size_t data_size_in_bytes;
-    typename DoFHandler<dim>::active_cell_iterator
-    cell = mg_dof_handler.begin_active(),
-    endc = mg_dof_handler.end();
-    for (; cell!=endc; ++cell)
-	{
-	    if (cell->is_locally_owned())
-		{
-		    set_atom_indices = this->charges_list_for_each_cell[cell];
-		    std::copy(set_atom_indices.begin(), set_atom_indices.end(), std::back_inserter(vec_atom_indices));
-		    data_size_in_bytes = sizeof(unsigned int) * vec_atom_indices.size();
-		    std::memcpy(data_store, vec_atom_indices, data_size_in_bytes);
-		}
-	    set_atom_indices.clear();
-	    vec_atom_indices.clear();
-	}
+    set_atom_indices = this->charges_list_for_each_cell[cell];
+    std::copy(set_atom_indices.begin(), set_atom_indices.end(), std::back_inserter(vec_atom_indices));
+    data_size_in_bytes = sizeof(unsigned int) * vec_atom_indices.size();
+    std::memcpy(data_store, &vec_atom_indices, data_size_in_bytes);
+    set_atom_indices.clear();
+    vec_atom_indices.clear();
 }
 
 template <int dim>
 void LaplaceProblem<dim>::unpack_function (const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &cell,
 					   const typename parallel::distributed::Triangulation<dim,dim>::CellStatus status, const void *data)
 {
+    Assert ((status!=parallel::distributed::Triangulation<dim,dim>::CELL_COARSEN),
+	    ExcNotImplemented());
     if (status==parallel::distributed::Triangulation<dim,dim>::CELL_REFINE)
 	{
 	 Assert(cell->has_children(), ExcInternalError());
@@ -361,11 +354,23 @@ void LaplaceProblem<dim>::unpack_function (const typename parallel::distributed:
 	 Assert(!cell->has_children(), ExcInternalError());
 	}
 
+//    std::vector<unsigned int> vec_atom_indices;
     std::set<unsigned int> set_atom_indices;
-    std::vector<unsigned int> vec_atom_indices;
     (void) status;
     const unsigned int * data_store = reinterpret_cast<const unsigned int *>(data);
-    std::memcpy(vec_atom_indices, data_store, sizeof data_store);
+    std::memcpy(&set_atom_indices, data_store, sizeof(data_store));
+    if(cell->has_children())
+	{
+	    for (unsigned int child=0; child<cell->n_children(); ++child)
+		if (cell->child(child)->is_locally_owned())
+		    {
+			this->charges_list_for_each_cell[cell->child(child)] = set_atom_indices;
+		    }
+	}
+    else
+	{
+	    this->charges_list_for_each_cell[cell] = set_atom_indices;
+	}
 }
 
 template <int dim>
@@ -980,7 +985,7 @@ void LaplaceProblem<dim>::run (bool & flag_rhs_assembly)
     this->flag_rhs_assembly = flag_rhs_assembly;
     read_lammps_input_file(LammpsInputFilename);
 
-    unsigned int offset;
+    static unsigned int offset, number_of_values;
 
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
         // first mesh size 4^2 = 16*16*16 and then 2 refinements
@@ -999,7 +1004,11 @@ void LaplaceProblem<dim>::run (bool & flag_rhs_assembly)
 	    {
 		refine_grid ();
 		//Need to check the call for this and how to take offset value from previous adap_ref_cycle
-		triangulation.notify_ready_to_unpack(offset, unpack_function<dim>);
+		triangulation.notify_ready_to_unpack(offset, std::bind(&Step50::LaplaceProblem<dim>::unpack_function,
+								       this,
+								       std::placeholders::_1,
+								       std::placeholders::_2,
+								       std::placeholders::_3));
 	    }
 
         pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
@@ -1011,12 +1020,19 @@ void LaplaceProblem<dim>::run (bool & flag_rhs_assembly)
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-        if(flag_rhs_assembly != 0)
+	if(flag_rhs_assembly != 0) //&& cycle == 0)
             rhs_assembly_optimization(atom_positions);
 
 	//Doubt regarding the data_size_in_bytes arg below
 	if(lammpsinput != 0 && flag_rhs_assembly != 0)
-	    offset = triangulation.register_data_attach(sizeof(unsigned int), pack_function<dim>);
+	    {
+		number_of_values = Utilities::MPI::max(number_of_values, triangulation.get_communicator ());
+		offset = triangulation.register_data_attach((sizeof(unsigned int) * number_of_values), std::bind(&Step50::LaplaceProblem<dim>::pack_function,
+													    this,
+													    std::placeholders::_1,
+													    std::placeholders::_2,
+													    std::placeholders::_3));
+	    }
 
         if(number_of_adaptive_refinement_cycles == 1 && dim == 2)
             grid_output_debug(charges_list_for_each_cell);
