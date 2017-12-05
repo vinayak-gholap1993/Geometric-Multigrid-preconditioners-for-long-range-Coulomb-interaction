@@ -5,10 +5,10 @@ using namespace dealii;
 
 int main (int argc, char *argv[])
 {
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 2);
 
     try
-    {        
+    {
         using namespace Step50;
 
         //deallog.depth_console(3);
@@ -23,7 +23,7 @@ int main (int argc, char *argv[])
         param.read_parameters(parameter_name);
 
         prm.enter_subsection ("Geometry");
-         unsigned int number_of_global_refinement =prm.get_integer("Number of global refinement");
+        unsigned int number_of_global_refinement =prm.get_integer("Number of global refinement");
         double domain_size_left     = prm.get_double ("Domain limit left");
         double domain_size_right     = prm.get_double ("Domain limit right");
         prm.leave_subsection ();
@@ -49,8 +49,8 @@ int main (int argc, char *argv[])
         std::string LammpsInputFile = (prm.get("Lammps input file"));
         prm.leave_subsection();
 
-        //If rhs optimization needed turn flag to 1
-        bool flag_rhs_assembly = 0;
+        //If rhs optimization needed turn flag to true
+        bool flag_rhs_assembly = true;
 
 //        std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
 //        for(const auto & i : r_c_variation)
@@ -61,14 +61,14 @@ int main (int argc, char *argv[])
         if (d == 2)
         {
             LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-            laplace_problem.run (flag_rhs_assembly);
+                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+            laplace_problem.run ();
         }
         else if (d == 3)
         {
             LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-            laplace_problem.run (flag_rhs_assembly);
+                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+            laplace_problem.run ();
         }
         else if (d != 2 && d != 3)
         {

@@ -1,4 +1,4 @@
-#include <step_50.h>
+﻿#include <step_50.h>
 
 
 using namespace dealii;
@@ -73,10 +73,12 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param,
-                                     std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile,
-                                     double &domain_size_left, double &domain_size_right, unsigned int &number_of_global_refinement, unsigned int &number_of_adaptive_refinement_cycles,
-                                     double &r_c, double &nonzero_density_radius_parameter)
+                                     const std::string &Problemtype, const std::string &PreconditionerType, const std::string &LammpsInputFile,
+				     const double &domain_size_left, const double &domain_size_right, const unsigned int &number_of_global_refinement,
+				     const unsigned int &number_of_adaptive_refinement_cycles,
+				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly)
     :
+    flag_rhs_assembly(flag_rhs_assembly),
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
            == 0)),
@@ -86,7 +88,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     fe (degree),
     mg_dof_handler (triangulation),
     degree(degree),
-    prm(param),    
+    prm(param),
     number_of_global_refinement(number_of_global_refinement),
     number_of_adaptive_refinement_cycles(number_of_adaptive_refinement_cycles),
     domain_size_left(domain_size_left),
@@ -97,7 +99,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     r_c(r_c),
     nonzero_density_radius_parameter(nonzero_density_radius_parameter)
 
-{    
+{
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
     pcout<<"Preconditioner :    " << PreconditionerType<<std::endl;
 
@@ -130,64 +132,64 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
 
 
 
-if(dim == 3)
+    if(dim == 3)
     {
 
-    if(file.is_open())
+        if(file.is_open())
         {
             lammpsinput = 1;
             while(!file.eof())
+            {
+                if(count == 2)
                 {
-                    if(count == 2)
-                        {
-                            file >> number_of_atoms;
-                            pcout<< "Number of atoms: " << number_of_atoms<< std::endl;
-                            atom_types = new unsigned int [number_of_atoms]();
-                            charges = new double [number_of_atoms]();
-                            atom_positions.resize(number_of_atoms);
-                        }
-                    else if(count == 35)
-                        {
-                            for(unsigned int i = 0; i < number_of_atoms; ++i)
-                                {
-                                    file >> a ;
-                                    file >> b;
-                                    file >> atom_types[i];
-                                    file >> charges[i];
-                                    file >> p(0);
-                                    file >> p(1);
-                                    file >> p(2); //For 2d test case comment
+                    file >> number_of_atoms;
+                    pcout<< "Number of atoms: " << number_of_atoms<< std::endl;
+                    atom_types = new unsigned int [number_of_atoms]();
+                    charges = new double [number_of_atoms]();
+                    atom_positions.resize(number_of_atoms);
+                }
+                else if(count == 35)
+                {
+                    for(unsigned int i = 0; i < number_of_atoms; ++i)
+                    {
+                        file >> a ;
+                        file >> b;
+                        file >> atom_types[i];
+                        file >> charges[i];
+                        file >> p(0);
+                        file >> p(1);
+                        file >> p(2); //For 2d test case comment
 //                                    file>>input;
 
-                                    atom_positions[i] = p;
+                        atom_positions[i] = p;
 
-                                    /*
-                                    const Point<dim> test1 = atom_positions[i];
-                                    std::cout << test1 <<std::endl;
+                        /*
+                        const Point<dim> test1 = atom_positions[i];
+                        std::cout << test1 <<std::endl;
 
-                                    std::cout<< "atom types: "<< atom_types[i]<< "  "<<
-                                                "charges: "<<charges[i]<< "  "<<
-                                                "atom pos: "<<p<<std::endl;
-                                    */
+                        std::cout<< "atom types: "<< atom_types[i]<< "  "<<
+                                    "charges: "<<charges[i]<< "  "<<
+                                    "atom pos: "<<p<<std::endl;
+                        */
 
-                                }
-                        }
-                    else
-                        {
-                            file >> input;
-                            //std::cout<< input << "  "<< count<<std::endl;
-                        }
-                    count++;
+                    }
                 }
+                else
+                {
+                    file >> input;
+                    //std::cout<< input << "  "<< count<<std::endl;
+                }
+                count++;
+            }
         }
-    else
+        else
         {
             lammpsinput = 0;
             pcout<<"Unable to open the file."<< std::endl;
         }
-    file.close();
+        file.close();
     }
-else
+    else
     {
         lammpsinput = 0;
         pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
@@ -196,42 +198,41 @@ else
 }
 
 template <int dim>
-void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim> > &atom_positions)
+void LaplaceProblem<dim>::rhs_assembly_optimization()
 {
-//pcout <<"Inside RHS Opti."<<std::endl;
-        typename DoFHandler<dim>::active_cell_iterator
-        cell = mg_dof_handler.begin_active(),
-        endc = mg_dof_handler.end();
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = mg_dof_handler.begin_active(),
+    endc = mg_dof_handler.end();
 
-        double distance_from_vertex_to_atom = 0.0;
+    double distance_from_vertex_to_atom = 0.0;
 
-        for(; cell!= endc; ++cell)
-            if (cell->is_locally_owned())
+    for(; cell!= endc; ++cell)
+        if (cell->is_locally_owned())
+        {
+            std::set<unsigned int> atom_indices;
+
+	    for(unsigned int i = 0; i < this->atom_positions.size(); ++i)
+            {
+                for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
                 {
-                    std::set<unsigned int> atom_indices;
-
-                    for(unsigned int i = 0; i < atom_positions.size(); ++i)
-                        {
-                            for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
-                                {
-                                    distance_from_vertex_to_atom = 0.0;
-                                    const Point<dim> Xi = atom_positions[i];
-                                    distance_from_vertex_to_atom = Xi.distance(cell->vertex(vertex_number));
-                                    if( distance_from_vertex_to_atom < nonzero_density_radius_parameter * r_c)
-                                        {                                           
-                                            atom_indices.insert(i);
-                                        }
-                                }
-                        }
-
-                    this->charges_list_for_each_cell.insert(std::make_pair(cell, atom_indices));
-
-                      //clear std::set content for next cell
-                    atom_indices.clear();
+                    distance_from_vertex_to_atom = 0.0;
+		    const Point<dim> Xi = this->atom_positions[i];
+                    distance_from_vertex_to_atom = Xi.distance(cell->vertex(vertex_number));
+                    if( distance_from_vertex_to_atom < nonzero_density_radius_parameter * r_c)
+                    {
+                        atom_indices.insert(i);
+                    }
                 }
+            }
 
-        std::set<unsigned int>::iterator iter;
-        typename std::map<cell_it, std::set<unsigned int> >::iterator it;
+            this->charges_list_for_each_cell.insert(std::make_pair(cell, atom_indices));
+
+            //clear std::set content for next cell
+            atom_indices.clear();
+        }
+
+    std::set<unsigned int>::iterator iter;
+    typename std::map<cell_it, std::set<unsigned int> >::iterator it;
 
 //        //Print the contents of std::map as cell level, index : atom_list
 //        for(it = charges_list_for_each_cell.begin(); it != charges_list_for_each_cell.end(); ++it)
@@ -241,136 +242,168 @@ void LaplaceProblem<dim>::rhs_assembly_optimization(const std::vector<Point<dim>
 //                    std::cout<< *iter << " ";
 //                std::cout<< std::endl;
 //            }
-//pcout<<"Done RHS Opti."<<std::endl;
 }
 
 // Output the grid with atoms list for each cell
 // Preferable to run only for one refinement
 template <int dim>
-void LaplaceProblem<dim>::grid_output_debug(const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell)
+void LaplaceProblem<dim>::grid_output_debug()
 {
     std::map<types::global_dof_index, Point<dim> > support_points;
     MappingQ1<dim> mapping;
     DoFTools::map_dofs_to_support_points(mapping, mg_dof_handler, support_points);
 
     const std::string base_filename =
-          "grid" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+        "grid" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
     const std::string filename =  base_filename + ".gp";
     std::ofstream f(filename.c_str());
 
     f << "set terminal png size 400,410 enhanced font \"Helvetica,8\"" << std::endl
-          << "set output \"" << base_filename << ".png\"" << std::endl
-          << "set size square" << std::endl
-          << "set view equal xy" << std::endl
-          << "unset xtics" << std::endl
-          << "unset ytics" << std::endl
-          << "plot '-' using 1:2 with lines notitle, '-' with labels point pt 2 offset 1,1 notitle" << std::endl;
+      << "set output \"" << base_filename << ".png\"" << std::endl
+      << "set size square" << std::endl
+      << "set view equal xy" << std::endl
+      << "unset xtics" << std::endl
+      << "unset ytics" << std::endl
+      << "plot '-' using 1:2 with lines notitle, '-' with labels point pt 2 offset 1,1 notitle" << std::endl;
     GridOut().write_gnuplot(triangulation, f);
     f << "e" << std::endl;
 
-    for (auto it : charges_list_for_each_cell)
-        {
-            f << it.first->center() << " \"";
-            for (auto el : it.second)
-              f << el << ", ";
-            f << "\"\n";
-         }
+    for (auto it : this->charges_list_for_each_cell)
+    {
+        f << it.first->center() << " \"";
+        for (auto el : it.second)
+            f << el << ", ";
+        f << "\"\n";
+    }
 
-        f << std::flush;
+    f << std::flush;
 
-        f << "e" << std::endl;
+    f << "e" << std::endl;
 
 //        Output another grid with flag output for atom presence on each cell
 //        if atom assigned to the cell flag 1 else flag 0
-        const std::string base_filename_2 =
-              "grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
-        const std::string filename_2 =  base_filename_2 + ".gp";
-        std::ofstream g(filename_2.c_str());
+    const std::string base_filename_2 =
+        "grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+    const std::string filename_2 =  base_filename_2 + ".gp";
+    std::ofstream g(filename_2.c_str());
 
-        g << "set terminal png size 400,410 enhanced font \"Helvetica,8\"" << std::endl
-              << "set output \"" << base_filename_2 << ".png\"" << std::endl
-              << "set size square" << std::endl
-              << "set view equal xy" << std::endl
-              << "unset xtics" << std::endl
-              << "unset ytics" << std::endl
-              << "plot '-' using 1:2 with lines notitle, '-' with labels point pt 2 offset 1,1 notitle" << std::endl;
-        GridOut().write_gnuplot(triangulation, g);
-        g << "e" << std::endl;
+    g << "set terminal png size 400,410 enhanced font \"Helvetica,8\"" << std::endl
+      << "set output \"" << base_filename_2 << ".png\"" << std::endl
+      << "set size square" << std::endl
+      << "set view equal xy" << std::endl
+      << "unset xtics" << std::endl
+      << "unset ytics" << std::endl
+      << "plot '-' using 1:2 with lines notitle, '-' with labels point pt 2 offset 1,1 notitle" << std::endl;
+    GridOut().write_gnuplot(triangulation, g);
+    g << "e" << std::endl;
 
-        for (auto it : charges_list_for_each_cell)
-            {
-                g << it.first->center() << " \"";
-                if(it.second.empty())
-                    g << 0;
-                else
-                    g << 1;
-                g << "\"\n";
-             }
+    for (auto it : this->charges_list_for_each_cell)
+    {
+        g << it.first->center() << " \"";
+        if(it.second.empty())
+            g << 0;
+        else
+            g << 1;
+        g << "\"\n";
+    }
 
-            g << std::flush;
+    g << std::flush;
 
-            g << "e" << std::endl;
+    g << "e" << std::endl;
 
 }
 
 template <int dim>
 void LaplaceProblem<dim>::pack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &cell,
-					const typename parallel::distributed::Triangulation<dim,dim>::CellStatus status, void *data)
+                                        const typename parallel::distributed::Triangulation<dim,dim>::CellStatus status, void *data)
 {
     if (status==parallel::distributed::Triangulation<dim,dim>::CELL_COARSEN)
-	{
-	  Assert(cell->has_children(), ExcInternalError());
-	}
-      else
-	{
-	  Assert(!cell->has_children(), ExcInternalError());
-	}
+    {
+        Assert(cell->has_children(), ExcInternalError());
+    }
+    else
+    {
+        Assert(!cell->has_children(), ExcInternalError());
+    }
 
     unsigned int * data_store = reinterpret_cast<unsigned int *>(data);
 
     std::set<unsigned int> set_atom_indices;
     std::vector<unsigned int> vec_atom_indices;
-    std::size_t data_size_in_bytes;
-    set_atom_indices = this->charges_list_for_each_cell[cell];
+    set_atom_indices = this->charges_list_for_each_cell.at(cell);
     std::copy(set_atom_indices.begin(), set_atom_indices.end(), std::back_inserter(vec_atom_indices));
-    data_size_in_bytes = sizeof(unsigned int) * vec_atom_indices.size();
-    std::memcpy(data_store, &vec_atom_indices, data_size_in_bytes);
+    std::memcpy(data_store, &vec_atom_indices, this->data_size_in_bytes);
     set_atom_indices.clear();
     vec_atom_indices.clear();
 }
 
 template <int dim>
 void LaplaceProblem<dim>::unpack_function (const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &cell,
-					   const typename parallel::distributed::Triangulation<dim,dim>::CellStatus status, const void *data)
+        const typename parallel::distributed::Triangulation<dim,dim>::CellStatus status, const void *data)
 {
     Assert ((status!=parallel::distributed::Triangulation<dim,dim>::CELL_COARSEN),
-	    ExcNotImplemented());
+            ExcNotImplemented());
     if (status==parallel::distributed::Triangulation<dim,dim>::CELL_REFINE)
-	{
-	 Assert(cell->has_children(), ExcInternalError());
-	}
-     else
-	{
-	 Assert(!cell->has_children(), ExcInternalError());
-	}
+    {
+        Assert(cell->has_children(), ExcInternalError());
+    }
+    else
+    {
+        Assert(!cell->has_children(), ExcInternalError());
+    }
 
-//    std::vector<unsigned int> vec_atom_indices;
     std::set<unsigned int> set_atom_indices;
     (void) status;
     const unsigned int * data_store = reinterpret_cast<const unsigned int *>(data);
-    std::memcpy(&set_atom_indices, data_store, sizeof(data_store));
+    std::memcpy(&set_atom_indices, data_store, this->data_size_in_bytes);
     if(cell->has_children())
-	{
-	    for (unsigned int child=0; child<cell->n_children(); ++child)
-		if (cell->child(child)->is_locally_owned())
-		    {
-			this->charges_list_for_each_cell[cell->child(child)] = set_atom_indices;
-		    }
-	}
+    {
+        for (unsigned int child=0; child<cell->n_children(); ++child)
+            if (cell->child(child)->is_locally_owned())
+            {
+                Assert(this->charges_list_for_each_cell.find(cell->child(child)) == this->charges_list_for_each_cell.end(),
+                       ExcInternalError());
+                this->charges_list_for_each_cell[cell->child(child)] = set_atom_indices;
+            }
+    }
     else
-	{
-	    this->charges_list_for_each_cell[cell] = set_atom_indices;
-	}
+    {
+//	    Assert(this->charges_list_for_each_cell.find(cell) == this->charges_list_for_each_cell.end(),
+//		   ExcInternalError());
+        this->charges_list_for_each_cell[cell] = set_atom_indices;
+    }
+}
+
+template <int dim>
+void LaplaceProblem<dim>::prepare_for_coarsening_and_refinement ( )
+{
+    unsigned int number_of_values = 0;
+    for (typename parallel::distributed::Triangulation<dim>::active_cell_iterator it = triangulation.begin_active();
+            it != triangulation.end(); it++)
+        if (it->is_locally_owned())
+            number_of_values = std::max(static_cast<unsigned int>(this->charges_list_for_each_cell.at(it).size()),
+                                        number_of_values);
+
+    number_of_values = Utilities::MPI::max(number_of_values, triangulation.get_communicator ());
+    Assert (number_of_values > 0, ExcInternalError());
+    this->data_size_in_bytes = sizeof(unsigned int) * number_of_values;
+    this->offset = triangulation.register_data_attach(data_size_in_bytes, std::bind(&Step50::LaplaceProblem<dim>::pack_function,
+                   this,
+                   std::placeholders::_1,
+                   std::placeholders::_2,
+                   std::placeholders::_3));
+
+
+}
+
+template <int dim>
+void LaplaceProblem<dim>::project_cell_data()
+{
+    triangulation.notify_ready_to_unpack(this->offset, std::bind(&Step50::LaplaceProblem<dim>::unpack_function,
+                                         this,
+                                         std::placeholders::_1,
+                                         std::placeholders::_2,
+                                         std::placeholders::_3));
 }
 
 template <int dim>
@@ -439,9 +472,7 @@ void LaplaceProblem<dim>::setup_system ()
 
 
 template <int dim>
-void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_positions, double * charges,
-                                           const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &charges_list_for_each_cell
-                                           , bool &flag_rhs_assembly)
+void LaplaceProblem<dim>::assemble_system ()
 {
     const QGauss<dim>  quadrature_formula(degree+1);
 
@@ -461,11 +492,6 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
     std::vector<double>    coefficient_values (n_q_points);
     std::vector<double>    density_values (n_q_points);
 
-    this->atom_positions = atom_positions;
-    this->charges = charges;
-    this->charges_list_for_each_cell = charges_list_for_each_cell;
-    this->flag_rhs_assembly = flag_rhs_assembly;
-
     double r = 0.0, r_squared = 0.0;
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
 
@@ -476,8 +502,6 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
 
     const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
 
-    std::set<unsigned int>::iterator iter;
-    typename std::map<cell_it, std::set<unsigned int> >::iterator it; //To be checked
     std::set<unsigned int> set_atom_indices;
 
     typename DoFHandler<dim>::active_cell_iterator
@@ -497,79 +521,79 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
 
             // evaluate RHS function at quadrature points.
             if(lammpsinput == 0)
-                {
-                    rhs_func->value_list (fe_values.get_quadrature_points(),
-                                         density_values);
-                }
+            {
+                rhs_func->value_list (fe_values.get_quadrature_points(),
+                                      density_values);
+            }
             else if(lammpsinput != 0)
-                {
-                    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
-                    set_atom_indices = this->charges_list_for_each_cell[cell];
+            {
+                const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+                set_atom_indices = this->charges_list_for_each_cell.at(cell);
 //                    pcout<<"Printing the cell->atom_indices: "<<std::endl;
 //                    for(const auto & b : set_atom_indices)
 //                        {
 //                            pcout<< b << ", ";
 //                        }
 //                    std::cout<<std::endl;
-                    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+                for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+                {
+                    density_values[q_points] = 0.0;
+
+                    // FIXME: figure out which cells have non-zero contribution from density for which atoms
+                    // maybe keep std::set<unsigned int> attached to a cell and in loop below only
+                    // go over atoms which have non-zero contribution.
+                    // for starters, do this association during setup_system(), i.e.
+                    // after each adaptive refinement.
+                    // TODO: add 1 unit test with 8 atoms and several refinement steps
+                    // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
+                    // make sure the solution agrees with analytical solution
+
+                    //If flag = false iterate over all the atoms in the domain, i.e. do not optimize the assembly
+                    if(!flag_rhs_assembly)
+
+                    {
+                        for(unsigned int k = 0; k < atom_positions.size(); ++k)
                         {
-                            density_values[q_points] = 0.0;
+                            r = 0.0;
+                            r_squared = 0.0;
 
-                            // FIXME: figure out which cells have non-zero contribution from density for which atoms
-                            // maybe keep std::set<unsigned int> attached to a cell and in loop below only
-                            // go over atoms which have non-zero contribution.
-                            // for starters, do this association during setup_system(), i.e.
-                            // after each adaptive refinement.
-                            // TODO: add 1 unit test with 8 atoms and several refinement steps
-                            // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
-                            // make sure the solution agrees with analytical solution
+                            const Point<dim> Xi = atom_positions[k];
+                            r = Xi.distance(quadrature_points[q_points]);
+                            r_squared = r * r;
 
-                            //If flag == 0 iterate over all the atoms in the domain, i.e. do not optimize the assembly
-                            if(flag_rhs_assembly == 0)
-
-                            {
-                                                                for(unsigned int k = 0; k < atom_positions.size(); ++k)
-                                                                {
-                                                                    r = 0.0;
-                                                                    r_squared = 0.0;
-
-                                                                    const Point<dim> Xi = atom_positions[k];
-                                                                    r = Xi.distance(quadrature_points[q_points]);
-                                                                    r_squared = r * r;
-
-                                                                    density_values[q_points] +=  constant_value *
-                                                                                                 exp(-r_squared * r_c_squared_inverse) *
-                                                                                                 this->charges[k];
-                                                                }
-
-                            }
-
-
-                            //If flag != 0 iterate only over the neighouring atoms and apply rhs optimization
-                            if(flag_rhs_assembly != 0)
-
-                                {
-                                    //To be checked
-                                            for(const auto & a : set_atom_indices)
-                                            {
-                                                //std::cout<< *iter << " ";
-                                                r = 0.0;
-                                                r_squared = 0.0;
-
-                                                const Point<dim> Xi = atom_positions[a];
-                                                r = Xi.distance(quadrature_points[q_points]);
-                                                r_squared = r * r;
-
-                                                density_values[q_points] +=  constant_value *
-                                                                             exp(-r_squared * r_c_squared_inverse) *
-                                                                             this->charges[a];
-                                            }
-                                }
-
-
+                            density_values[q_points] +=  constant_value *
+                                                         exp(-r_squared * r_c_squared_inverse) *
+                                                         this->charges[k];
                         }
-                    set_atom_indices.clear();
+
+                    }
+
+
+                    //If flag = true iterate only over the neighouring atoms and apply rhs optimization
+                    if(flag_rhs_assembly)
+
+                    {
+                        //To be checked
+                        for(const auto & a : set_atom_indices)
+                        {
+                            //std::cout<< *iter << " ";
+                            r = 0.0;
+                            r_squared = 0.0;
+
+                            const Point<dim> Xi = atom_positions[a];
+                            r = Xi.distance(quadrature_points[q_points]);
+                            r_squared = r * r;
+
+                            density_values[q_points] +=  constant_value *
+                                                         exp(-r_squared * r_c_squared_inverse) *
+                                                         this->charges[a];
+                        }
+                    }
+
+
                 }
+                set_atom_indices.clear();
+            }
 
 
             for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
@@ -581,9 +605,9 @@ void LaplaceProblem<dim>::assemble_system (const std::vector<Point<dim> > &atom_
                                              fe_values.shape_grad(j,q_point) *
                                              fe_values.JxW(q_point));
 
-                            cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-                                           density_values[q_point] *
-                                           fe_values.JxW(q_point));
+                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+                                    density_values[q_point] *
+                                    fe_values.JxW(q_point));
 
                 }
 
@@ -721,8 +745,8 @@ void LaplaceProblem<dim>::solve ()
         SolverCG<vector_t> coarse_solver(coarse_solver_control);
         PreconditionIdentity id;
         MGCoarseGridIterativeSolver<vector_t, SolverCG<vector_t>, matrix_t, PreconditionIdentity > coarse_grid_solver(coarse_solver,
-            coarse_matrix,
-            id);
+                coarse_matrix,
+                id);
 
         typedef LA::MPI::PreconditionJacobi Smoother;
         MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother;
@@ -735,10 +759,10 @@ void LaplaceProblem<dim>::solve ()
 
 
         Multigrid<vector_t > mg(mg_matrix,
-                            coarse_grid_solver,
-                            mg_transfer,
-                            mg_smoother,
-                            mg_smoother);
+                                coarse_grid_solver,
+                                mg_transfer,
+                                mg_smoother,
+                                mg_smoother);
 
         mg.set_edge_matrices(mg_interface_down, mg_interface_up);
 
@@ -797,12 +821,13 @@ void LaplaceProblem<dim>::refine_grid ()
     const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
     GridRefinement::refine (triangulation, estimated_error_per_cell, threshold);
 
-    // parallel::distributed::GridRefinement::
-    //refine_and_coarsen_fixed_fraction (triangulation,
-    //                                estimated_error_per_cell,
-    //                             0.3, 0.0);
+    if(lammpsinput != 0 && flag_rhs_assembly)
+        prepare_for_coarsening_and_refinement();
 
     triangulation.execute_coarsening_and_refinement ();
+
+    if(lammpsinput != 0 && flag_rhs_assembly)
+        project_cell_data();
 }
 /*
 template <int dim>
@@ -864,71 +889,71 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     LA::MPI::Vector analytical_sol_ghost;
 
 //Output the analytical solution on mesh only for Gaussian charges problem with or without LAMMPS input
-   if(Problemtype == "GaussianCharges")
+    if(Problemtype == "GaussianCharges")
+    {
+        if(lammpsinput == 0)
         {
-            if(lammpsinput == 0)
-                {
-                    //Need to implement the analytical sol for the problem on paper
-                    LA::MPI::Vector analytical_sol;
-                    analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-                    VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution_without_lammps<dim> (r_c), analytical_sol);
-                    analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
-                    analytical_sol_ghost = analytical_sol;
-                    data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_without_lammps");
-                }
-            else if (lammpsinput != 0)
-                {
-                   LA::MPI::Vector analytical_sol;
-                   analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-                   VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution<dim> (r_c), analytical_sol);
-                   analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
-                   analytical_sol_ghost = analytical_sol;
-                   data_out.add_data_vector (analytical_sol_ghost, "Analytical_sol_atoms");
-                }
+            //Need to implement the analytical sol for the problem on paper
+            LA::MPI::Vector analytical_sol;
+            analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+            VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution_without_lammps<dim> (r_c), analytical_sol);
+            analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+            analytical_sol_ghost = analytical_sol;
+            data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_without_lammps");
         }
+        else if (lammpsinput != 0)
+        {
+            LA::MPI::Vector analytical_sol;
+            analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+            VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution<dim> (r_c), analytical_sol);
+            analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+            analytical_sol_ghost = analytical_sol;
+            data_out.add_data_vector (analytical_sol_ghost, "Analytical_sol_atoms");
+        }
+    }
 
-   LA::MPI::Vector interpolated_rhs;
-   interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+    LA::MPI::Vector interpolated_rhs;
+    interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
 //Output the rhs to mesh for visualisation
 
     if(number_of_atoms < 10)
-        {
-            if (Problemtype == "Step16")
-                VectorTools::interpolate (mg_dof_handler, Step16::RightHandSide<dim> (), interpolated_rhs);
-            if (Problemtype == "GaussianCharges")
-                VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
+    {
+        if (Problemtype == "Step16")
+            VectorTools::interpolate (mg_dof_handler, Step16::RightHandSide<dim> (), interpolated_rhs);
+        if (Problemtype == "GaussianCharges")
+            VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
 
-            data_out.add_data_vector (interpolated_rhs, "interpolated_rhs");
-        }
+        data_out.add_data_vector (interpolated_rhs, "interpolated_rhs");
+    }
     data_out.add_data_vector (system_rhs, "system_rhs");
 
 //Output support for rhs of each atom with 1 being atom present in the cell
 
-  std::vector<Vector<float>> support(number_of_atoms,
-                                        Vector<float>(this->triangulation.n_active_cells()));
-  unsigned int cell_index = 0;
-  std::set<unsigned int> set_atom_indices;
-  for (auto cell: this->mg_dof_handler.active_cell_iterators())
+    std::vector<Vector<float>> support(number_of_atoms,
+                                       Vector<float>(this->triangulation.n_active_cells()));
+    unsigned int cell_index = 0;
+    std::set<unsigned int> set_atom_indices;
+    for (auto cell: this->mg_dof_handler.active_cell_iterators())
     {
-      if (cell->is_locally_owned())
+        if (cell->is_locally_owned())
         {
-              set_atom_indices = this->charges_list_for_each_cell.at(cell);
-              if(!set_atom_indices.empty())
-                  {
-                      for(auto i: set_atom_indices)
-                          support[i](cell_index) = 1.0;
-                  }
+            set_atom_indices = this->charges_list_for_each_cell.at(cell);
+            if(!set_atom_indices.empty())
+            {
+                for(auto i: set_atom_indices)
+                    support[i](cell_index) = 1.0;
+            }
         }
-      cell_index++;
-      set_atom_indices.clear();
+        cell_index++;
+        set_atom_indices.clear();
     }
-  Assert (cell_index == this->triangulation.n_active_cells(),
-          ExcInternalError());
-  for (unsigned int i = 0; i < number_of_atoms; i++)
+    Assert (cell_index == this->triangulation.n_active_cells(),
+            ExcInternalError());
+    for (unsigned int i = 0; i < number_of_atoms; i++)
     {
-      data_out.add_data_vector (support[i],
-                                std::string("support_") +
-                                dealii::Utilities::int_to_string(i));
+        data_out.add_data_vector (support[i],
+                                  std::string("support_") +
+                                  dealii::Utilities::int_to_string(i));
     }
 
     Vector<float> subdomain (triangulation.n_active_cells());
@@ -978,14 +1003,11 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 
 
 template <int dim>
-void LaplaceProblem<dim>::run (bool & flag_rhs_assembly)
+void LaplaceProblem<dim>::run ()
 {
 
     Timer timer;
-    this->flag_rhs_assembly = flag_rhs_assembly;
     read_lammps_input_file(LammpsInputFilename);
-
-    static unsigned int offset, number_of_values;
 
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
         // first mesh size 4^2 = 16*16*16 and then 2 refinements
@@ -1001,15 +1023,9 @@ void LaplaceProblem<dim>::run (bool & flag_rhs_assembly)
             triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
         }
         else
-	    {
-		refine_grid ();
-		//Need to check the call for this and how to take offset value from previous adap_ref_cycle
-		triangulation.notify_ready_to_unpack(offset, std::bind(&Step50::LaplaceProblem<dim>::unpack_function,
-								       this,
-								       std::placeholders::_1,
-								       std::placeholders::_2,
-								       std::placeholders::_3));
-	    }
+        {
+            refine_grid ();
+        }
 
         pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
 
@@ -1020,24 +1036,13 @@ void LaplaceProblem<dim>::run (bool & flag_rhs_assembly)
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-	if(flag_rhs_assembly != 0) //&& cycle == 0)
-            rhs_assembly_optimization(atom_positions);
-
-	//Doubt regarding the data_size_in_bytes arg below
-	if(lammpsinput != 0 && flag_rhs_assembly != 0)
-	    {
-		number_of_values = Utilities::MPI::max(number_of_values, triangulation.get_communicator ());
-		offset = triangulation.register_data_attach((sizeof(unsigned int) * number_of_values), std::bind(&Step50::LaplaceProblem<dim>::pack_function,
-													    this,
-													    std::placeholders::_1,
-													    std::placeholders::_2,
-													    std::placeholders::_3));
-	    }
+        if((cycle == 0) && this->flag_rhs_assembly)
+	    rhs_assembly_optimization();
 
         if(number_of_adaptive_refinement_cycles == 1 && dim == 2)
-            grid_output_debug(charges_list_for_each_cell);
+	    grid_output_debug();
 
-        assemble_system (atom_positions, charges, charges_list_for_each_cell , flag_rhs_assembly);
+        assemble_system ();
         if(PreconditionerType == "GMG")
             assemble_multigrid ();
 

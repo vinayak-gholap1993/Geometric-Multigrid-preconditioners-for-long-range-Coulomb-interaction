@@ -107,28 +107,31 @@ template <int dim>
 class LaplaceProblem
 {
 public:
-    LaplaceProblem (const unsigned int , ParameterHandler &, std::string &, std::string &, std::string &,
-                    double &, double &, unsigned int &, unsigned int &,
-                    double &, double &);
-    void run (bool &);
-    bool flag_rhs_assembly;
+    LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
+                    const double &, const double &, const unsigned int &, const unsigned int &,
+                    const double &, const double &,
+		    const bool &);
+    void run ();
 
 protected:
+    const bool flag_rhs_assembly;
+
     void setup_system ();
-    void assemble_system (const std::vector<Point<dim> > &, double *,
-                          const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > & , bool &);
+    void assemble_system ();
     void assemble_multigrid ();
     void solve ();
     void refine_grid ();
     //void solution_gradient();
     void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
-    void rhs_assembly_optimization(const std::vector<Point<dim> > &);
-    void grid_output_debug(const std::map<typename parallel::distributed::Triangulation<dim>::cell_iterator, std::set<unsigned int> > &);
+    void rhs_assembly_optimization();
+    void grid_output_debug();
     void pack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &,
-		       const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , void *);
+                       const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , void *);
     void unpack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &,
-			 const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , const void *);
+                         const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , const void *);
+    void prepare_for_coarsening_and_refinement ();
+    void project_cell_data();
 
     ConditionalOStream                        pcout;
 
@@ -171,6 +174,8 @@ protected:
 
     typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
     std::map<cell_it, std::set<unsigned int> > charges_list_for_each_cell;
+    std::size_t data_size_in_bytes;
+    unsigned int offset;
 
 };
 }
@@ -238,7 +243,9 @@ class RightHandSide : public Function<dim>
 {
 public:
     double r_c;
-    RightHandSide(double _r_c):Function<dim>() { r_c = _r_c;}
+    RightHandSide(double _r_c):Function<dim>() {
+        r_c = _r_c;
+    }
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -259,7 +266,9 @@ class Analytical_Solution : public Function<dim>
 {
 public:
     double r_c;
-    Analytical_Solution(double _r_c):Function<dim>() {r_c = _r_c;}
+    Analytical_Solution(double _r_c):Function<dim>() {
+        r_c = _r_c;
+    }
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -268,7 +277,9 @@ class Analytical_Solution_without_lammps : public Function<dim>
 {
 public:
     double r_c;
-    Analytical_Solution_without_lammps(double _r_c):Function<dim>() {r_c = _r_c;}
+    Analytical_Solution_without_lammps(double _r_c):Function<dim>() {
+        r_c = _r_c;
+    }
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
