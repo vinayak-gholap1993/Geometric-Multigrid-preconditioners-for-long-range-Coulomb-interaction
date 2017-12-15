@@ -74,9 +74,9 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param,
                                      const std::string &Problemtype, const std::string &PreconditionerType, const std::string &LammpsInputFile,
-				     const double &domain_size_left, const double &domain_size_right, const unsigned int &number_of_global_refinement,
-				     const unsigned int &number_of_adaptive_refinement_cycles,
-				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly)
+                                     const double &domain_size_left, const double &domain_size_right, const unsigned int &number_of_global_refinement,
+                                     const unsigned int &number_of_adaptive_refinement_cycles,
+                                     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly)
     :
     flag_rhs_assembly(flag_rhs_assembly),
     pcout (std::cout,
@@ -158,7 +158,7 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
                         file >> charges[i];
                         file >> p(0);
                         file >> p(1);
-			file >> p(2); //For 2d test case comment
+                        file >> p(2); //For 2d test case comment
 //			file>>input;
 
                         atom_positions[i] = p;
@@ -191,8 +191,8 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
     }
     else
     {
-	lammpsinput = 0;
-	pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+        lammpsinput = 0;
+        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
     }
 
 }
@@ -211,12 +211,12 @@ void LaplaceProblem<dim>::rhs_assembly_optimization()
         {
             std::set<unsigned int> atom_indices;
 
-	    for(unsigned int i = 0; i < this->atom_positions.size(); ++i)
+            for(unsigned int i = 0; i < this->atom_positions.size(); ++i)
             {
                 for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
                 {
                     distance_from_vertex_to_atom = 0.0;
-		    const Point<dim> Xi = this->atom_positions[i];
+                    const Point<dim> Xi = this->atom_positions[i];
                     distance_from_vertex_to_atom = Xi.distance(cell->vertex(vertex_number));
                     if( distance_from_vertex_to_atom < nonzero_density_radius_parameter * r_c)
                     {
@@ -254,7 +254,7 @@ void LaplaceProblem<dim>::grid_output_debug(const unsigned int cycle)
     DoFTools::map_dofs_to_support_points(mapping, mg_dof_handler, support_points);
 
     const std::string base_filename =
-	"grid" + dealii::Utilities::int_to_string(dim) + "_p" + "_cycle"+ dealii::Utilities::int_to_string(cycle) + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+        "grid" + dealii::Utilities::int_to_string(dim) + "_p" + "_cycle"+ dealii::Utilities::int_to_string(cycle) + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
     const std::string filename =  base_filename + ".gp";
     std::ofstream f(filename.c_str());
 
@@ -283,7 +283,7 @@ void LaplaceProblem<dim>::grid_output_debug(const unsigned int cycle)
 //        Output another grid with flag output for atom presence on each cell
 //        if atom assigned to the cell flag 1 else flag 0
     const std::string base_filename_2 =
-	"grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + "_cycle"+ dealii::Utilities::int_to_string(cycle) + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+        "grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + "_cycle"+ dealii::Utilities::int_to_string(cycle) + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
     const std::string filename_2 =  base_filename_2 + ".gp";
     std::ofstream g(filename_2.c_str());
 
@@ -334,7 +334,7 @@ void LaplaceProblem<dim>::pack_function(const typename parallel::distributed::Tr
     std::copy(set_atom_indices.begin(), set_atom_indices.end(), std::back_inserter(vec_atom_indices));
     const unsigned int n_indices = vec_atom_indices.size();
     Assert (sizeof(unsigned int) * (n_indices+1) <= this->data_size_in_bytes,
-	    ExcInternalError());
+            ExcInternalError());
     std::memcpy(data_store, &n_indices, sizeof(unsigned int));
     data_store++;
     std::memcpy(data_store, &vec_atom_indices[0], sizeof(unsigned int)*n_indices);
@@ -382,8 +382,8 @@ void LaplaceProblem<dim>::unpack_function (const typename parallel::distributed:
         for (unsigned int child=0; child<cell->n_children(); ++child)
             if (cell->child(child)->is_locally_owned())
             {
-                Assert(this->charges_list_for_each_cell.find(cell->child(child)) == this->charges_list_for_each_cell.end(),
-                       ExcInternalError());
+//                Assert(this->charges_list_for_each_cell.find(cell->child(child)) == this->charges_list_for_each_cell.end(),
+//                       ExcInternalError());
                 this->charges_list_for_each_cell[cell->child(child)] = set_atom_indices;
             }
     }
@@ -574,7 +574,7 @@ void LaplaceProblem<dim>::assemble_system ()
                     //If flag = false iterate over all the atoms in the domain, i.e. do not optimize the assembly
                     if(!flag_rhs_assembly)
 
-		    {
+                    {
                         for(unsigned int k = 0; k < atom_positions.size(); ++k)
                         {
                             r = 0.0;
@@ -595,7 +595,7 @@ void LaplaceProblem<dim>::assemble_system ()
                     //If flag = true iterate only over the neighouring atoms and apply rhs optimization
                     if(flag_rhs_assembly)
 
-		    {
+                    {
                         //To be checked
                         for(const auto & a : set_atom_indices)
                         {
@@ -949,8 +949,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
         if (Problemtype == "GaussianCharges")
             VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
 
-	interpolated_rhs_ghost = interpolated_rhs;
-	data_out.add_data_vector (interpolated_rhs_ghost, "interpolated_rhs");
+        interpolated_rhs_ghost = interpolated_rhs;
+        data_out.add_data_vector (interpolated_rhs_ghost, "interpolated_rhs");
     }
     LA::MPI::Vector system_rhs_ghost;
     system_rhs_ghost.reinit(mg_dof_handler.locally_owned_dofs(), locally_relevant_set, MPI_COMM_WORLD);
@@ -1035,7 +1035,9 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 template <int dim>
 void LaplaceProblem<dim>::run ()
 {
-
+    Timer timer_test;
+    timer_test.start();
+    pcout << "Dimension:	" << dim << std::endl;
     Timer timer;
     read_lammps_input_file(LammpsInputFilename);
 
@@ -1065,11 +1067,11 @@ void LaplaceProblem<dim>::run ()
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-	if((cycle == 0) && (flag_rhs_assembly))
-	    rhs_assembly_optimization();
+        if((cycle == 0) && (flag_rhs_assembly))
+            rhs_assembly_optimization();
 
-	if(dim == 2)
-	    grid_output_debug(cycle);
+        if(dim == 2)
+            grid_output_debug(cycle);
 
         assemble_system ();
 
@@ -1080,12 +1082,15 @@ void LaplaceProblem<dim>::run ()
 
         timer.stop();
         //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
-	pcout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+//	pcout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
         timer.reset();
 
         //solution_gradient();
         output_results (cycle);
     }
+    timer_test.stop();
+//    pcout << "   \n\nElapsed wall time: " << timer_test.wall_time() << " seconds."<<std::endl;
+    timer_test.reset();
 }
 
 

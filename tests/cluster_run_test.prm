@@ -4,22 +4,22 @@
 
 subsection Geometry	
 	# The uniform global mesh refinement on the Domain in the power of 4
-	set Number of global refinement = 1
+	set Number of global refinement = 4
 
 	#Left limit of domain
-	set Domain limit left = 0
+	set Domain limit left = -10
 
 	#Right limit of domain
-	set Domain limit right = 1
+	set Domain limit right = 10
 end
 
 subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
-	set Number of Adaptive Refinement = 3
+	set Number of Adaptive Refinement = 10
 
 	#Set the smoothing length parameter for each Gaussian atom charge
-	set smoothing length = 0.1
+	set smoothing length = 0.5
 
 	#Set the parameter to localize the density around each charge where it is nonzero
 	set Nonzero Density radius parameter around each charge =  3.5
@@ -37,10 +37,10 @@ end
 
 subsection Problem Selection
 	set Problem = GaussianCharges
-	set Dimension = 2
+	set Dimension = 3
 end	
 
 subsection Lammps data
-	set Lammps input file = atom_3.data
+	set Lammps input file = atom_8.data
 end
 
