@@ -125,7 +125,7 @@ protected:
     void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
     void rhs_assembly_optimization();
-    void grid_output_debug();
+    void grid_output_debug(const unsigned int );
     void pack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &,
                        const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , void *);
     void unpack_function(const typename parallel::distributed::Triangulation<dim,dim>::cell_iterator &,

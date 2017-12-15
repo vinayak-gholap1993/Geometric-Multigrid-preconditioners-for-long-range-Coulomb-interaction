@@ -1,0 +1,33 @@
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Number of atoms: 3
+Cycle 0:
+   Number of active cells:       4
+   Number of degrees of freedom: 9 (by level: 4, 9)
+   Starting value 55.719772
+   CG converged in 1 iterations.
+   Convergence value 7.105427e-15
+   L1 solution norm 2.0894914315e+01
+   L2 solution norm 2.0894914315e+01
+   LInfinity solution norm 2.0894914315e+01
+   Elapsed wall time: 5.0767220000e-03 seconds.
+Cycle 1:
+   Number of active cells:       16
+   Number of degrees of freedom: 25 (by level: 4, 9, 25)
+   Starting value 40.0586631306
+   CG converged in 5 iterations.
+   Convergence value 2.7677939697e-07
+   L1 solution norm 7.2011119144e+01
+   L2 solution norm 2.7992422212e+01
+   LInfinity solution norm 1.9159572683e+01
+   Elapsed wall time: 5.8264450000e-03 seconds.
+Cycle 2:
+   Number of active cells:       28
+   Number of degrees of freedom: 41 (by level: 4, 9, 25, 25)
+   Starting value 29.5832976385
+   CG converged in 6 iterations.
+   Convergence value 5.5748938531e-08
+   L1 solution norm 1.7343888022e+02
+   L2 solution norm 4.6671643239e+01
+   LInfinity solution norm 2.1397846992e+01
+   Elapsed wall time: 8.3954100000e-03 seconds.

@@ -158,8 +158,8 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
                         file >> charges[i];
                         file >> p(0);
                         file >> p(1);
-                        file >> p(2); //For 2d test case comment
-//                                    file>>input;
+			file >> p(2); //For 2d test case comment
+//			file>>input;
 
                         atom_positions[i] = p;
 
@@ -191,8 +191,8 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
     }
     else
     {
-        lammpsinput = 0;
-        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+	lammpsinput = 0;
+	pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
     }
 
 }
@@ -247,14 +247,14 @@ void LaplaceProblem<dim>::rhs_assembly_optimization()
 // Output the grid with atoms list for each cell
 // Preferable to run only for one refinement
 template <int dim>
-void LaplaceProblem<dim>::grid_output_debug()
+void LaplaceProblem<dim>::grid_output_debug(const unsigned int cycle)
 {
     std::map<types::global_dof_index, Point<dim> > support_points;
     MappingQ1<dim> mapping;
     DoFTools::map_dofs_to_support_points(mapping, mg_dof_handler, support_points);
 
     const std::string base_filename =
-        "grid" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+	"grid" + dealii::Utilities::int_to_string(dim) + "_p" + "_cycle"+ dealii::Utilities::int_to_string(cycle) + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
     const std::string filename =  base_filename + ".gp";
     std::ofstream f(filename.c_str());
 
@@ -283,7 +283,7 @@ void LaplaceProblem<dim>::grid_output_debug()
 //        Output another grid with flag output for atom presence on each cell
 //        if atom assigned to the cell flag 1 else flag 0
     const std::string base_filename_2 =
-        "grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
+	"grid_atom_presence" + dealii::Utilities::int_to_string(dim) + "_p" + "_cycle"+ dealii::Utilities::int_to_string(cycle) + dealii::Utilities::int_to_string(Utilities::MPI::this_mpi_process(MPI_COMM_WORLD));
     const std::string filename_2 =  base_filename_2 + ".gp";
     std::ofstream g(filename_2.c_str());
 
@@ -332,7 +332,12 @@ void LaplaceProblem<dim>::pack_function(const typename parallel::distributed::Tr
     std::vector<unsigned int> vec_atom_indices;
     set_atom_indices = this->charges_list_for_each_cell.at(cell);
     std::copy(set_atom_indices.begin(), set_atom_indices.end(), std::back_inserter(vec_atom_indices));
-    std::memcpy(data_store, &vec_atom_indices, this->data_size_in_bytes);
+    const unsigned int n_indices = vec_atom_indices.size();
+    Assert (sizeof(unsigned int) * (n_indices+1) <= this->data_size_in_bytes,
+	    ExcInternalError());
+    std::memcpy(data_store, &n_indices, sizeof(unsigned int));
+    data_store++;
+    std::memcpy(data_store, &vec_atom_indices[0], sizeof(unsigned int)*n_indices);
     set_atom_indices.clear();
     vec_atom_indices.clear();
 }
@@ -352,10 +357,26 @@ void LaplaceProblem<dim>::unpack_function (const typename parallel::distributed:
         Assert(!cell->has_children(), ExcInternalError());
     }
 
-    std::set<unsigned int> set_atom_indices;
     (void) status;
     const unsigned int * data_store = reinterpret_cast<const unsigned int *>(data);
-    std::memcpy(&set_atom_indices, data_store, this->data_size_in_bytes);
+    unsigned int n_indices = 0;
+    std::memcpy(&n_indices, data_store, sizeof(unsigned int));
+    data_store++;
+    std::vector<unsigned int> vec_atom_indices(n_indices);
+    std::memcpy(&vec_atom_indices[0], data_store, sizeof(unsigned int) * n_indices);
+
+    // print debug
+//    if(n_indices != 0)
+//    {
+//	    std::cout << "cell with center " << cell->center() << " has " << n_indices << " values:" << std::endl;
+//	    for (auto &ind : vec_atom_indices)
+//		std::cout <<" " << ind;
+//	    std::cout << std::endl;
+//    }
+
+    std::set<unsigned int> set_atom_indices;	//(vec_atom_indices.begin(), vec_atom_indices.end());
+    std::copy(vec_atom_indices.begin(), vec_atom_indices.end(), std::inserter(set_atom_indices, set_atom_indices.begin()));
+
     if(cell->has_children())
     {
         for (unsigned int child=0; child<cell->n_children(); ++child)
@@ -368,10 +389,12 @@ void LaplaceProblem<dim>::unpack_function (const typename parallel::distributed:
     }
     else
     {
-//	    Assert(this->charges_list_for_each_cell.find(cell) == this->charges_list_for_each_cell.end(),
-//		   ExcInternalError());
+//	Assert(this->charges_list_for_each_cell.find(cell) == this->charges_list_for_each_cell.end(),
+//	       ExcInternalError());
         this->charges_list_for_each_cell[cell] = set_atom_indices;
     }
+    vec_atom_indices.clear();
+    set_atom_indices.clear();
 }
 
 template <int dim>
@@ -384,7 +407,7 @@ void LaplaceProblem<dim>::prepare_for_coarsening_and_refinement ( )
             number_of_values = std::max(static_cast<unsigned int>(this->charges_list_for_each_cell.at(it).size()),
                                         number_of_values);
 
-    number_of_values = Utilities::MPI::max(number_of_values, triangulation.get_communicator ());
+    number_of_values = Utilities::MPI::max(number_of_values, triangulation.get_communicator ()) + 1;
     Assert (number_of_values > 0, ExcInternalError());
     this->data_size_in_bytes = sizeof(unsigned int) * number_of_values;
     this->offset = triangulation.register_data_attach(data_size_in_bytes, std::bind(&Step50::LaplaceProblem<dim>::pack_function,
@@ -551,7 +574,7 @@ void LaplaceProblem<dim>::assemble_system ()
                     //If flag = false iterate over all the atoms in the domain, i.e. do not optimize the assembly
                     if(!flag_rhs_assembly)
 
-                    {
+		    {
                         for(unsigned int k = 0; k < atom_positions.size(); ++k)
                         {
                             r = 0.0;
@@ -572,7 +595,7 @@ void LaplaceProblem<dim>::assemble_system ()
                     //If flag = true iterate only over the neighouring atoms and apply rhs optimization
                     if(flag_rhs_assembly)
 
-                    {
+		    {
                         //To be checked
                         for(const auto & a : set_atom_indices)
                         {
@@ -821,12 +844,12 @@ void LaplaceProblem<dim>::refine_grid ()
     const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
     GridRefinement::refine (triangulation, estimated_error_per_cell, threshold);
 
-    if(lammpsinput != 0 && flag_rhs_assembly)
+    if((lammpsinput != 0) && (flag_rhs_assembly))
         prepare_for_coarsening_and_refinement();
 
     triangulation.execute_coarsening_and_refinement ();
 
-    if(lammpsinput != 0 && flag_rhs_assembly)
+    if((lammpsinput != 0) && (flag_rhs_assembly))
         project_cell_data();
 }
 /*
@@ -914,6 +937,9 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 
     LA::MPI::Vector interpolated_rhs;
     interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+    LA::MPI::Vector interpolated_rhs_ghost;
+    interpolated_rhs_ghost.reinit(mg_dof_handler.locally_owned_dofs(), locally_relevant_set, MPI_COMM_WORLD);
+
 //Output the rhs to mesh for visualisation
 
     if(number_of_atoms < 10)
@@ -923,9 +949,13 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
         if (Problemtype == "GaussianCharges")
             VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
 
-        data_out.add_data_vector (interpolated_rhs, "interpolated_rhs");
+	interpolated_rhs_ghost = interpolated_rhs;
+	data_out.add_data_vector (interpolated_rhs_ghost, "interpolated_rhs");
     }
-    data_out.add_data_vector (system_rhs, "system_rhs");
+    LA::MPI::Vector system_rhs_ghost;
+    system_rhs_ghost.reinit(mg_dof_handler.locally_owned_dofs(), locally_relevant_set, MPI_COMM_WORLD);
+    system_rhs_ghost = system_rhs;
+    data_out.add_data_vector (system_rhs_ghost, "system_rhs");
 
 //Output support for rhs of each atom with 1 being atom present in the cell
 
@@ -1010,7 +1040,6 @@ void LaplaceProblem<dim>::run ()
     read_lammps_input_file(LammpsInputFilename);
 
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
-        // first mesh size 4^2 = 16*16*16 and then 2 refinements
     {
         timer.start();
 
@@ -1036,13 +1065,14 @@ void LaplaceProblem<dim>::run ()
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-        if((cycle == 0) && this->flag_rhs_assembly)
+	if((cycle == 0) && (flag_rhs_assembly))
 	    rhs_assembly_optimization();
 
-        if(number_of_adaptive_refinement_cycles == 1 && dim == 2)
-	    grid_output_debug();
+	if(dim == 2)
+	    grid_output_debug(cycle);
 
         assemble_system ();
+
         if(PreconditionerType == "GMG")
             assemble_multigrid ();
 
@@ -1050,7 +1080,7 @@ void LaplaceProblem<dim>::run ()
 
         timer.stop();
         //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
-        std::cout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
+	pcout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
         timer.reset();
 
         //solution_gradient();

@@ -1,0 +1,83 @@
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   Starting value 3.824135
+   CG converged in 7 iterations.
+   Convergence value 3.399648e-08
+   L1 solution norm 3.0759762708e+01
+   L2 solution norm 1.7120419658e+00
+   LInfinity solution norm 4.3815569845e-01
+   Elapsed wall time: 1.4065812630e+00 seconds.
+Cycle 1:
+   Number of active cells:       4320
+   Number of degrees of freedom: 5257 (by level: 8, 27, 125, 729, 4913, 425)
+   Starting value 4.5863935306
+   CG converged in 8 iterations.
+   Convergence value 1.9018859458e-08
+   L1 solution norm 8.5957732983e+01
+   L2 solution norm 5.7840561807e+00
+   LInfinity solution norm 1.7955648281e+00
+   Elapsed wall time: 2.0286490460e+00 seconds.
+Cycle 2:
+   Number of active cells:       4530
+   Number of degrees of freedom: 5569 (by level: 8, 27, 125, 729, 4913, 561, 249)
+   Starting value 2.6306990832
+   CG converged in 8 iterations.
+   Convergence value 8.9441901733e-09
+   L1 solution norm 1.6720512649e+02
+   L2 solution norm 1.0556508969e+01
+   LInfinity solution norm 1.6081093688e+00
+   Elapsed wall time: 2.3104013630e+00 seconds.
+Cycle 3:
+   Number of active cells:       4754
+   Number of degrees of freedom: 5871 (by level: 8, 27, 125, 729, 4913, 561, 561, 54)
+   Starting value 2.0564501706
+   CG converged in 8 iterations.
+   Convergence value 1.0248406155e-08
+   L1 solution norm 2.4778841415e+02
+   L2 solution norm 1.2957481375e+01
+   LInfinity solution norm 1.6303739115e+00
+   Elapsed wall time: 2.4788217470e+00 seconds.
+Cycle 4:
+   Number of active cells:       5398
+   Number of degrees of freedom: 6785 (by level: 8, 27, 125, 729, 4913, 681, 981, 622)
+   Starting value 1.3058013628
+   CG converged in 10 iterations.
+   Convergence value 6.8545655493e-09
+   L1 solution norm 5.5248889194e+02
+   L2 solution norm 2.2851149027e+01
+   LInfinity solution norm 1.6366181033e+00
+   Elapsed wall time: 2.9912228010e+00 seconds.
+Cycle 5:
+   Number of active cells:       7050
+   Number of degrees of freedom: 8887 (by level: 8, 27, 125, 729, 4913, 1269, 1521, 1993)
+   Starting value 0.8420790931
+   CG converged in 10 iterations.
+   Convergence value 5.6591107012e-09
+   L1 solution norm 1.1882564205e+03
+   L2 solution norm 3.2119590611e+01
+   LInfinity solution norm 1.6526101159e+00
+   Elapsed wall time: 3.9465872910e+00 seconds.
+Cycle 6:
+   Number of active cells:       9094
+   Number of degrees of freedom: 11525 (by level: 8, 27, 125, 729, 4913, 1317, 2121, 3577, 922)
+   Starting value 0.6917948446
+   CG converged in 11 iterations.
+   Convergence value 1.3536690894e-09
+   L1 solution norm 2.1015991472e+03
+   L2 solution norm 4.4438325322e+01
+   LInfinity solution norm 1.6746532740e+00
+   Elapsed wall time: 6.0463140840e+00 seconds.
+Cycle 7:
+   Number of active cells:       14078
+   Number of degrees of freedom: 17517 (by level: 8, 27, 125, 729, 4913, 1713, 3213, 6193, 3882)
+   Starting value 0.4559673731
+   CG converged in 11 iterations.
+   Convergence value 7.4829564968e-10
+   L1 solution norm 4.7376772665e+03
+   L2 solution norm 6.8571463029e+01
+   LInfinity solution norm 1.6803778342e+00
+   Elapsed wall time: 7.0166990190e+00 seconds.
