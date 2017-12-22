@@ -65,16 +65,22 @@ void check ()
   std::string LammpsInputFile = (prm.get("Lammps input file"));
   prm.leave_subsection();
 
+  bool flag_rhs_assembly = true;
+
           if (d == 2)
           {
-              Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+	      Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile,
+							domain_size_left, domain_size_right, number_of_global_refinement,
+							number_of_adaptive_refinement_cycles, r_c,
+							nonzero_density_radius_parameter, flag_rhs_assembly);
               laplace_problem.run ();
           }
           else if (d == 3)
           {
-              Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
+	      Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile,
+							domain_size_left, domain_size_right, number_of_global_refinement,
+							number_of_adaptive_refinement_cycles, r_c,
+							nonzero_density_radius_parameter, flag_rhs_assembly);
               laplace_problem.run ();
           }
           else if (d != 2 && d != 3)
@@ -88,11 +94,8 @@ void check ()
 
 int main (int argc, char *argv[])
 {
-//  std::ofstream logfile("output");
-//  deallog.attach(logfile);
-//  deallog.threshold_double(1.e-10);
 
-  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 2);
 
   check ();
 

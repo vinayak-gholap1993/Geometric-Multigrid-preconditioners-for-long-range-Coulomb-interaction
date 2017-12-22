@@ -1,11 +1,11 @@
 //This is a test for atoms problem with optimum chosen cutoff radius for rhs assembly optimization
 //The test will run both rhs assembly versions i.e. optimized rhs assembly and without optimization to compare directly the results
+//This is a 3D test
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/parameter_handler.h>
 #include <fstream>
 #include <step_50.h>
-#include <assert.h>
 
 using namespace dealii;
 using namespace Step50;
@@ -22,7 +22,12 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
     using Step50::LaplaceProblem<dim>::assemble_multigrid;
     using Step50::LaplaceProblem<dim>::solve;
     using Step50::LaplaceProblem<dim>::output_results;
+    using Step50::LaplaceProblem<dim>::pack_function;
+    using Step50::LaplaceProblem<dim>::unpack_function;
+    using Step50::LaplaceProblem<dim>::prepare_for_coarsening_and_refinement;
+    using Step50::LaplaceProblem<dim>::project_cell_data;
 
+    const bool flag_rhs_assembly;
     const unsigned int degree;
     ParameterHandler &prm;
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
@@ -32,11 +37,18 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
 
   public:
     Test_LaplaceProblem (const unsigned int Degree , ParameterHandler &prm,
-                         std::string &Problemtype, std::string &PreconditionerType, std::string &LammpsInputFile,
-                         double &domain_size_left, double &domain_size_right, unsigned int &number_of_global_refinement, unsigned int &number_of_adaptive_refinement_cycles,
-                         double &r_c, double &nonzero_density_radius_parameter) : Step50::LaplaceProblem<dim> (Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile,
-                                                                                                               domain_size_left, domain_size_right, number_of_global_refinement,
-                                                                                                               number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter),
+			 const std::string &Problemtype, const std::string &PreconditionerType, const std::string &LammpsInputFile,
+			 const double &domain_size_left, const double &domain_size_right, const unsigned int &number_of_global_refinement,
+			 const unsigned int &number_of_adaptive_refinement_cycles,
+			 const double &r_c, const double &nonzero_density_radius_parameter,
+			 const bool & flag_rhs_assembly_) : Step50::LaplaceProblem<dim> (Degree , prm ,Problemtype,
+											 PreconditionerType, LammpsInputFile,
+											 domain_size_left, domain_size_right,
+											 number_of_global_refinement,
+											 number_of_adaptive_refinement_cycles,
+											 r_c, nonzero_density_radius_parameter,
+											 flag_rhs_assembly_),
+	flag_rhs_assembly(flag_rhs_assembly_),
         degree(Degree),
         prm(prm),
         number_of_global_refinement(number_of_global_refinement),
@@ -50,7 +62,8 @@ class Test_LaplaceProblem : public Step50::LaplaceProblem<dim>
         nonzero_density_radius_parameter(nonzero_density_radius_parameter)
     { }
 
-    void run (bool &);
+    ~Test_LaplaceProblem();
+    void run ();
 
 };
 
@@ -58,11 +71,21 @@ template class Test_LaplaceProblem<2>;
 template class Test_LaplaceProblem<3>;
 
 template <int dim>
-void Test_LaplaceProblem<dim>::run(bool &flag_rhs_assembly)
+Test_LaplaceProblem<dim>::~Test_LaplaceProblem ()
 {
-    Timer timer;    // May be print the total wall clock time for run() instead of each adap_ref cycle time
-    timer.start();
-    Step50::LaplaceProblem<dim>::flag_rhs_assembly = flag_rhs_assembly;
+    Step50::LaplaceProblem<dim>::triangulation.clear();
+    Step50::LaplaceProblem<dim>::mg_dof_handler.clear();
+    if(flag_rhs_assembly)
+	Step50::LaplaceProblem<dim>::charges_list_for_each_cell.clear();
+}
+
+template <int dim>
+void Test_LaplaceProblem<dim>::run()
+{
+    Timer timer (Step50::LaplaceProblem<dim>::triangulation.get_communicator(), true);
+//    timer.start();
+    Step50::LaplaceProblem<dim>::pcout << "Dimension:	" << dim << std::endl;
+
     Step50::LaplaceProblem<dim>::read_lammps_input_file(LammpsInputFilename);
     for (unsigned int cycle=0; cycle<number_of_adaptive_refinement_cycles; ++cycle)
     {
@@ -79,29 +102,31 @@ void Test_LaplaceProblem<dim>::run(bool &flag_rhs_assembly)
 
         Step50::LaplaceProblem<dim>::pcout << "   Number of active cells:       "<< Step50::LaplaceProblem<dim>::triangulation.n_global_active_cells() << std::endl;
 
-        Step50::LaplaceProblem<dim>::setup_system ();
+	if(cycle == 0)
+	    Step50::LaplaceProblem<dim>::setup_system ();
 
         Step50::LaplaceProblem<dim>::pcout << "   Number of degrees of freedom: " << Step50::LaplaceProblem<dim>::mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<Step50::LaplaceProblem<dim>::triangulation.n_global_levels(); ++level)
             Step50::LaplaceProblem<dim>::pcout << Step50::LaplaceProblem<dim>::mg_dof_handler.n_dofs(level) << (level == Step50::LaplaceProblem<dim>::triangulation.n_global_levels()-1 ? ")" : ", ");
         Step50::LaplaceProblem<dim>::pcout << std::endl;
 
-        if(flag_rhs_assembly != 0)
-            Step50::LaplaceProblem<dim>::rhs_assembly_optimization(Step50::LaplaceProblem<dim>::atom_positions);
+	if((cycle == 0) && (flag_rhs_assembly))
+	    Step50::LaplaceProblem<dim>::rhs_assembly_optimization();
 
-        Step50::LaplaceProblem<dim>::assemble_system (Step50::LaplaceProblem<dim>::atom_positions, Step50::LaplaceProblem<dim>::charges, Step50::LaplaceProblem<dim>::charges_list_for_each_cell
-                                                      ,flag_rhs_assembly);
+	Step50::LaplaceProblem<dim>::assemble_system ();
 
         // Print the charges densities i.e. system rhs norms to compare with rhs optimization
         Step50::LaplaceProblem<dim>::pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.l2_norm() << std::endl;
         Step50::LaplaceProblem<dim>::pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << Step50::LaplaceProblem<dim>::system_rhs.linfty_norm() << std::endl;
 
-        Step50::LaplaceProblem<dim>::assemble_multigrid ();
+	if(PreconditionerType == "GMG")
+	    Step50::LaplaceProblem<dim>::assemble_multigrid ();
+
         Step50::LaplaceProblem<dim>::solve ();
         Step50::LaplaceProblem<dim>::output_results (cycle);
     }
     timer.stop();
-    std::cout << "\nElapsed wall time: " << timer.wall_time() << " seconds.\n"<<std::endl;
+    Step50::LaplaceProblem<dim>::pcout << "\nElapsed wall time: " << timer.wall_time() << " seconds.\n"<<std::endl;
     timer.reset();
 }
 
@@ -132,7 +157,7 @@ void check ()
         << "    set Dimension = 3" << std::endl
         <<"end"<<std::endl
        <<"subsection Lammps data"<<std::endl
-      << "  set Lammps input file = " << SOURCE_DIR << "/atom_8.data" << std::endl
+      << "  set Lammps input file = " << SOURCE_DIR << "/atom_2.data" << std::endl
       <<"end"<<std::endl;
 
   prm.parse_input_from_string(oss.str().c_str());
@@ -166,37 +191,40 @@ void check ()
 
   bool flag_rhs_assembly;
 
-  static_assert(std::is_base_of<Step50::LaplaceProblem, Test_LaplaceProblem>::value,
-  "User's Test_LaplaceProblem class should be derived from LaplaceProblem in namespace Step50");
-
           if (d == 2)
           {
-                Test_LaplaceProblem<2> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                            number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-                flag_rhs_assembly = 0;
-                std::cout << "Without rhs assembly optimization" <<std::endl;
-                test_laplace_problem.run(flag_rhs_assembly);
+		  flag_rhs_assembly = true;
+		  Test_LaplaceProblem<2> test_laplace_problem_with_rhs_optimization(Degree , prm ,Problemtype, PreconditionerType,
+										    LammpsInputFile, domain_size_left, domain_size_right,
+										    number_of_global_refinement, number_of_adaptive_refinement_cycles,
+										    r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+		  test_laplace_problem_with_rhs_optimization.run();
+		  test_laplace_problem_with_rhs_optimization.~Test_LaplaceProblem();
 
-                Test_LaplaceProblem<2> test_laplace_problem_with_rhs_optimization(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                            number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-                flag_rhs_assembly = 1;
-                std::cout << "Rhs assembly optimization ENABLED" <<std::endl;
-                test_laplace_problem_with_rhs_optimization.run(flag_rhs_assembly);
+		  flag_rhs_assembly = false;
+		  Test_LaplaceProblem<2> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left,
+							      domain_size_right, number_of_global_refinement, number_of_adaptive_refinement_cycles,
+							      r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+		  test_laplace_problem.run();
+		  test_laplace_problem.~Test_LaplaceProblem();
 
           }
           else if (d == 3)
           {
-                  Test_LaplaceProblem<3> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-                  flag_rhs_assembly = 0;
-                  std::cout << "Without rhs assembly optimization" <<std::endl;
-                  test_laplace_problem.run(flag_rhs_assembly);
+		  flag_rhs_assembly = true;
+		  Test_LaplaceProblem<3> test_laplace_problem_with_rhs_optimization(Degree , prm ,Problemtype, PreconditionerType,
+										    LammpsInputFile, domain_size_left, domain_size_right,
+										    number_of_global_refinement, number_of_adaptive_refinement_cycles,
+										    r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+		  test_laplace_problem_with_rhs_optimization.run();
+		  test_laplace_problem_with_rhs_optimization.~Test_LaplaceProblem();
 
-                  Test_LaplaceProblem<3> test_laplace_problem_with_rhs_optimization(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter);
-                  flag_rhs_assembly = 1;
-                  std::cout << "Rhs assembly optimization ENABLED" <<std::endl;
-                  test_laplace_problem_with_rhs_optimization.run(flag_rhs_assembly);
+		  flag_rhs_assembly = false;
+		  Test_LaplaceProblem<3> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left,
+							      domain_size_right, number_of_global_refinement, number_of_adaptive_refinement_cycles,
+							      r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+		  test_laplace_problem.run();
+		  test_laplace_problem.~Test_LaplaceProblem();
 
           }
           else if (d != 2 && d != 3)
@@ -209,7 +237,7 @@ void check ()
 int main (int argc, char *argv[])
 {
 
-  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
+  dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 2);
 
   check ();
 

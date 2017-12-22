@@ -1,0 +1,53 @@
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Rhs assembly optimization ENABLED
+Dimension:	3
+Number of atoms: 216
+Cycle 0:
+   Number of active cells:       32768
+   Number of degrees of freedom: 35937 (by level: 8, 27, 125, 729, 4913, 35937)
+   Starting value 0.729068
+   CG converged in 6 iterations.
+   Convergence value 7.234160e-09
+   L1 solution norm 7.5171109455e+02
+   L2 solution norm 7.8925156421e+00
+   LInfinity solution norm 3.5712167674e-01
+Cycle 1:
+   Number of active cells:       33608
+   Number of degrees of freedom: 37389 (by level: 8, 27, 125, 729, 4913, 35937, 1832)
+   Starting value 0.1045399586
+   CG converged in 9 iterations.
+   Convergence value 4.5704171131e-09
+   L1 solution norm 8.6652735130e+02
+   L2 solution norm 9.8982962533e+00
+   LInfinity solution norm 3.6383613594e-01
+Cycle 2:
+   Number of active cells:       38144
+   Number of degrees of freedom: 43965 (by level: 8, 27, 125, 729, 4913, 35937, 9812)
+   Starting value 0.1266328077
+   CG converged in 10 iterations.
+   Convergence value 1.1505895307e-09
+   L1 solution norm 1.3299937745e+03
+   L2 solution norm 1.4026365847e+01
+   LInfinity solution norm 3.6534607128e-01
+Cycle 3:
+   Number of active cells:       46061
+   Number of degrees of freedom: 53763 (by level: 8, 27, 125, 729, 4913, 35937, 20267, 1130)
+   Starting value 0.1049760607
+   CG converged in 10 iterations.
+   Convergence value 7.7387602152e-10
+   L1 solution norm 1.9554494781e+03
+   L2 solution norm 1.7230079624e+01
+   LInfinity solution norm 3.6591992549e-01
+Cycle 4:
+   Number of active cells:       60439
+   Number of degrees of freedom: 71945 (by level: 8, 27, 125, 729, 4913, 35937, 33106, 9991)
+   Starting value 0.0797523809
+   CG converged in 10 iterations.
+   Convergence value 5.9355270307e-10
+   L1 solution norm 3.6991589764e+03
+   L2 solution norm 2.6755110643e+01
+   LInfinity solution norm 3.6369951996e-01
+   
+Elapsed wall time: 1.9740029161e+02 seconds.
+

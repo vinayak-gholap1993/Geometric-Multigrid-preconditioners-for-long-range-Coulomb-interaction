@@ -1,0 +1,38 @@
+#!/bin/bash
+#PBS -l nodes=1:ppn=40:likwid:f2.2
+#PBS -l walltime=01:00:00
+#PBS -M vinugholap@gmail.com -m abe
+
+#Go to the working directory
+cd /home/woody/iwtm/iwtm003h/
+
+module load git likwid openmpi/2.0.2-gcc
+
+export PATH=$WOODYHOME/spack/bin:$PATH
+export DEAL_II_DIR=$(spack location -i dealii)
+. /home/woody/iwtm/iwtm003h/spack/share/spack/setup-env.sh
+spack load cmake
+spack load dealii@develop
+
+#Go to build directory
+cd Dealii-Project/_build/
+cmake ..
+make distclean
+make debug
+cd src/
+
+#Run the executable with MPI and passing the 
+#prm file
+for natoms in 8 216
+do
+echo Running $natoms atoms
+
+for numprocs in 20
+do
+echo Running with $numprocs mpi processes
+
+likwid-mpirun -np ${numprocs} main ${natoms}_atom_test.prm > ${natoms}_atom_test.mpirun=${numprocs}.output
+
+done
+done
+

@@ -50,7 +50,7 @@ int main (int argc, char *argv[])
         prm.leave_subsection();
 
         //If rhs optimization needed turn flag to true
-        bool flag_rhs_assembly = true;
+	bool flag_rhs_assembly = true;
 
 //        std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
 //        for(const auto & i : r_c_variation)

@@ -102,6 +102,10 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
 {
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
     pcout<<"Preconditioner :    " << PreconditionerType<<std::endl;
+    if(flag_rhs_assembly)
+	pcout<<"Rhs assembly optimization ENABLED"<<std::endl;
+    else
+	pcout<<"Without rhs assembly optimization"<<std::endl;
 
     if (Problemtype == "Step16")
     {
@@ -115,6 +119,15 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     }
 
 
+}
+
+template <int dim>
+LaplaceProblem<dim>::~LaplaceProblem ()
+{
+    triangulation.clear();
+    mg_dof_handler.clear();
+    if(flag_rhs_assembly)
+	charges_list_for_each_cell.clear();
 }
 
 
@@ -158,7 +171,7 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
                         file >> charges[i];
                         file >> p(0);
                         file >> p(1);
-                        file >> p(2); //For 2d test case comment
+			file >> p(2); //For 2d test case comment
 //			file>>input;
 
                         atom_positions[i] = p;
@@ -191,8 +204,8 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
     }
     else
     {
-        lammpsinput = 0;
-        pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
+	lammpsinput = 0;
+	pcout<< "\nReading of Lammps input file implemented for 3D only\n" <<std::endl;
     }
 
 }
@@ -551,7 +564,8 @@ void LaplaceProblem<dim>::assemble_system ()
             else if(lammpsinput != 0)
             {
                 const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
-                set_atom_indices = this->charges_list_for_each_cell.at(cell);
+		if(flag_rhs_assembly)
+		    set_atom_indices = this->charges_list_for_each_cell.at(cell);
 //                    pcout<<"Printing the cell->atom_indices: "<<std::endl;
 //                    for(const auto & b : set_atom_indices)
 //                        {
@@ -615,7 +629,8 @@ void LaplaceProblem<dim>::assemble_system ()
 
 
                 }
-                set_atom_indices.clear();
+		if(flag_rhs_assembly)
+		    set_atom_indices.clear();
             }
 
 
@@ -847,10 +862,24 @@ void LaplaceProblem<dim>::refine_grid ()
     if((lammpsinput != 0) && (flag_rhs_assembly))
         prepare_for_coarsening_and_refinement();
 
+    parallel::distributed::SolutionTransfer<dim, LA::MPI::Vector> soltrans(mg_dof_handler);
+    triangulation.prepare_coarsening_and_refinement();
+
+    LA::MPI::Vector previous_solution;
+    previous_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
+    previous_solution = solution;
+    soltrans.prepare_for_coarsening_and_refinement(previous_solution);
+
     triangulation.execute_coarsening_and_refinement ();
 
     if((lammpsinput != 0) && (flag_rhs_assembly))
-        project_cell_data();
+	project_cell_data();
+
+    setup_system();
+
+    soltrans.interpolate(solution);
+    constraints.set_zero (solution);
+
 }
 /*
 template <int dim>
@@ -942,7 +971,7 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 
 //Output the rhs to mesh for visualisation
 
-    if(number_of_atoms < 10)
+    if((lammpsinput != 0) && (number_of_atoms < 10))
     {
         if (Problemtype == "Step16")
             VectorTools::interpolate (mg_dof_handler, Step16::RightHandSide<dim> (), interpolated_rhs);
@@ -960,30 +989,34 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 //Output support for rhs of each atom with 1 being atom present in the cell
 
     std::vector<Vector<float>> support(number_of_atoms,
-                                       Vector<float>(this->triangulation.n_active_cells()));
-    unsigned int cell_index = 0;
-    std::set<unsigned int> set_atom_indices;
-    for (auto cell: this->mg_dof_handler.active_cell_iterators())
+				       Vector<float>(this->triangulation.n_active_cells()));
+
+    if((lammpsinput != 0) && (flag_rhs_assembly))
     {
-        if (cell->is_locally_owned())
-        {
-            set_atom_indices = this->charges_list_for_each_cell.at(cell);
-            if(!set_atom_indices.empty())
-            {
-                for(auto i: set_atom_indices)
-                    support[i](cell_index) = 1.0;
-            }
-        }
-        cell_index++;
-        set_atom_indices.clear();
-    }
-    Assert (cell_index == this->triangulation.n_active_cells(),
-            ExcInternalError());
-    for (unsigned int i = 0; i < number_of_atoms; i++)
-    {
-        data_out.add_data_vector (support[i],
-                                  std::string("support_") +
-                                  dealii::Utilities::int_to_string(i));
+	    unsigned int cell_index = 0;
+	    std::set<unsigned int> set_atom_indices;
+	    for (auto cell: this->mg_dof_handler.active_cell_iterators())
+	    {
+		if (cell->is_locally_owned())
+		{
+		    set_atom_indices = this->charges_list_for_each_cell.at(cell);
+		    if(!set_atom_indices.empty())
+		    {
+			for(auto i: set_atom_indices)
+			    support[i](cell_index) = 1.0;
+		    }
+		}
+		cell_index++;
+		set_atom_indices.clear();
+	    }
+	    Assert (cell_index == this->triangulation.n_active_cells(),
+		    ExcInternalError());
+	    for (unsigned int i = 0; i < number_of_atoms; i++)
+	    {
+		data_out.add_data_vector (support[i],
+					  std::string("support_") +
+					  dealii::Utilities::int_to_string(i));
+	    }
     }
 
     Vector<float> subdomain (triangulation.n_active_cells());
@@ -1035,8 +1068,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 template <int dim>
 void LaplaceProblem<dim>::run ()
 {
-    Timer timer_test;
-    timer_test.start();
+    Timer timer_test (triangulation.get_communicator(), true);
+
     pcout << "Dimension:	" << dim << std::endl;
     Timer timer;
     read_lammps_input_file(LammpsInputFilename);
@@ -1049,18 +1082,17 @@ void LaplaceProblem<dim>::run ()
 
         if (cycle == 0)
         {
-            GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right);
+	    GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right); // 1 cell i.e. 2^(0*dim)
 
-            triangulation.refine_global (number_of_global_refinement);  //eg. first mesh size 4^2 = 16*16*16
+	    triangulation.refine_global (number_of_global_refinement);  // formula: 2^(num * dim)
         }
-        else
-        {
-            refine_grid ();
-        }
+	else
+	    refine_grid ();
 
         pcout << "   Number of active cells:       "<< triangulation.n_global_active_cells() << std::endl;
 
-        setup_system ();
+	if(cycle == 0)
+	    setup_system ();
 
         pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
@@ -1081,7 +1113,6 @@ void LaplaceProblem<dim>::run ()
         solve ();
 
         timer.stop();
-        //std::cout << "   Elapsed CPU time: " << timer() << " seconds."<<std::endl;
 //	pcout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
         timer.reset();
 
@@ -1089,7 +1120,7 @@ void LaplaceProblem<dim>::run ()
         output_results (cycle);
     }
     timer_test.stop();
-//    pcout << "   \n\nElapsed wall time: " << timer_test.wall_time() << " seconds."<<std::endl;
+    pcout << "   \nElapsed wall time: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
     timer_test.reset();
 }
 

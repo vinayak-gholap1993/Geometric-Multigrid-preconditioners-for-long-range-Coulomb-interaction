@@ -1,11 +1,11 @@
 //This is a test for 8 atoms
 //The test will be used to run on cluster
+//This is a 3D test
 
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/parameter_handler.h>
 #include <fstream>
 #include <step_50.h>
-#include <assert.h>
 
 using namespace dealii;
 using namespace Step50;
@@ -78,13 +78,15 @@ void check ()
     if (d == 2)
     {
         LaplaceProblem<2> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                               number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+					       number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter,
+					       flag_rhs_assembly);
         test_laplace_problem.run();
     }
     else if (d == 3)
     {
         LaplaceProblem<3> test_laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                               number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+					       number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter,
+					       flag_rhs_assembly);
         test_laplace_problem.run();
     }
     else if (d != 2 && d != 3)

@@ -62,6 +62,7 @@
 #include <deal.II/base/index_set.h>
 #include <deal.II/distributed/tria.h>
 #include <deal.II/distributed/grid_refinement.h>
+#include <deal.II/distributed/solution_transfer.h>
 
 #include <deal.II/multigrid/mg_constrained_dofs.h>
 #include <deal.II/multigrid/multigrid.h>
@@ -111,6 +112,7 @@ public:
                     const double &, const double &, const unsigned int &, const unsigned int &,
                     const double &, const double &,
 		    const bool &);
+    ~LaplaceProblem();
     void run ();
 
 protected:
