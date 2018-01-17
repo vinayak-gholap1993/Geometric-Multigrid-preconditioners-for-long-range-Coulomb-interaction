@@ -21,6 +21,12 @@ void ParameterReader::declare_parameters()
 
         prm.declare_entry("Domain limit right","1",Patterns::Double(),
                           "Right limit of domain");
+
+	prm.declare_entry("Mesh size","0.25", Patterns::Double(),
+			  "Mesh size for initial domain");
+
+	prm.declare_entry("Vacuum repetitions","1", Patterns::Integer(),
+			  "Number of repetitions for vacuum on each side in terms of 2 * Mesh size");
     }
     prm.leave_subsection();
 
@@ -74,7 +80,8 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param,
                                      const std::string &Problemtype, const std::string &PreconditionerType, const std::string &LammpsInputFile,
-                                     const double &domain_size_left, const double &domain_size_right, const unsigned int &number_of_global_refinement,
+				     const double &domain_size_left, const double &domain_size_right, const double &mesh_size_h,
+				     const unsigned int &repetitions_for_vacuum, const unsigned int &number_of_global_refinement,
                                      const unsigned int &number_of_adaptive_refinement_cycles,
                                      const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly)
     :
@@ -93,6 +100,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     number_of_adaptive_refinement_cycles(number_of_adaptive_refinement_cycles),
     domain_size_left(domain_size_left),
     domain_size_right(domain_size_right),
+    mesh_size_h(mesh_size_h),
+    repetitions_for_vacuum(repetitions_for_vacuum),
     Problemtype(Problemtype),
     PreconditionerType(PreconditionerType),
     LammpsInputFilename(LammpsInputFile),
@@ -1087,10 +1096,9 @@ void LaplaceProblem<dim>::run ()
 
 	    // Here domain_left and right need to be according to the LAMMPS atom file xlo and xhi
 	    // Need to set #Global_ref = 0
-	    const static double a = 0.5;
-	    const double N = 2 *(domain_size_right - domain_size_left);	// N = | left - right |/ a
-	    const double M = 10; // Setting the vaccum around the lattice as 10 * a
-//	    const double total_domain_length_1D = (N + 2 * M) * a;
+	    const double a = 2 * mesh_size_h;
+	    const double N = (domain_size_right - domain_size_left) / a;	// N = | left - right |/ 2h
+	    const double M = repetitions_for_vacuum; // Setting the vaccum around the lattice in terms of a
 	    const double repetitions_in_each_direction = 2 * (N + 2 * M);   // in terms of 'h' grid size, h = a/2
 	    std::vector< unsigned int > repetitions;
 	    repetitions.push_back (repetitions_in_each_direction);

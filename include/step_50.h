@@ -109,7 +109,7 @@ class LaplaceProblem
 {
 public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
-                    const double &, const double &, const unsigned int &, const unsigned int &,
+		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
                     const double &, const double &,
 		    const bool &);
     ~LaplaceProblem();
@@ -163,7 +163,8 @@ protected:
     ParameterHandler &prm;
 
     unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
-    double domain_size_left , domain_size_right;
+    double domain_size_left , domain_size_right, mesh_size_h;
+    unsigned int repetitions_for_vacuum;
     std::string Problemtype, PreconditionerType, LammpsInputFilename;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;

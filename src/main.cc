@@ -26,6 +26,8 @@ int main (int argc, char *argv[])
         unsigned int number_of_global_refinement =prm.get_integer("Number of global refinement");
         double domain_size_left     = prm.get_double ("Domain limit left");
         double domain_size_right     = prm.get_double ("Domain limit right");
+	double mesh_size_h = prm.get_double ("Mesh size");
+	unsigned int repetitions_for_vacuum = prm.get_integer ("Vacuum repetitions");
         prm.leave_subsection ();
 
         prm.enter_subsection ("Misc");
@@ -61,13 +63,15 @@ int main (int argc, char *argv[])
         if (d == 2)
         {
             LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+					      mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
+					      r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
             laplace_problem.run ();
         }
         else if (d == 3)
         {
             LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-                                              number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
+					      mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
+					      r_c, nonzero_density_radius_parameter, flag_rhs_assembly);
             laplace_problem.run ();
         }
         else if (d != 2 && d != 3)
