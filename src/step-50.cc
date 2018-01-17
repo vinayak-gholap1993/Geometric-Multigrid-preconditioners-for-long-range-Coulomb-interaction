@@ -1082,9 +1082,35 @@ void LaplaceProblem<dim>::run ()
 
         if (cycle == 0)
         {
-	    GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right); // 1 cell i.e. 2^(0*dim)
+//	    GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right); // 1 cell i.e. 2^(0*dim)
+//	    triangulation.refine_global (number_of_global_refinement);  // formula: 2^(num * dim)
 
-	    triangulation.refine_global (number_of_global_refinement);  // formula: 2^(num * dim)
+	    // Here domain_left and right need to be according to the LAMMPS atom file xlo and xhi
+	    // Need to set #Global_ref = 0
+	    const static double a = 0.5;
+	    const double N = 2 *(domain_size_right - domain_size_left);	// N = | left - right |/ a
+	    const double M = 10; // Setting the vaccum around the lattice as 10 * a
+//	    const double total_domain_length_1D = (N + 2 * M) * a;
+	    const double repetitions_in_each_direction = 2 * (N + 2 * M);   // in terms of 'h' grid size, h = a/2
+	    std::vector< unsigned int > repetitions;
+	    repetitions.push_back (repetitions_in_each_direction);
+	    if(dim >= 2)
+		repetitions.push_back (repetitions_in_each_direction);
+	    if(dim >= 3)
+		repetitions.push_back (repetitions_in_each_direction);
+
+	    const Point<dim> lower_left = (dim == 2
+					   ?
+					   Point<dim> (domain_size_left - (M *a), domain_size_left - (M *a))
+					   :
+					   Point<dim> (domain_size_left - (M *a), domain_size_left - (M *a), domain_size_left - (M *a)));
+	    const Point<dim> upper_right = (dim == 2
+					    ?
+					    Point<dim> (domain_size_right + (M *a), domain_size_right + (M *a))
+					    :
+					    Point<dim> (domain_size_right + (M *a), domain_size_right + (M *a), domain_size_right + (M *a)));
+
+	    GridGenerator::subdivided_hyper_rectangle (triangulation, repetitions, lower_left, upper_right, false);
         }
 	else
 	    refine_grid ();
