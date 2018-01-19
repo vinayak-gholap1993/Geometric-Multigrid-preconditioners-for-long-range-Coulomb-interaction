@@ -50,6 +50,16 @@ void ParameterReader::declare_parameters()
 
         prm.declare_entry ("Nonzero Density radius parameter around each charge","3",Patterns::Double(),
                            "Set the parameter to localize the density around each charge where it is nonzero");
+
+	prm.declare_entry ("Output and calculation of Analytical solution", "false", Patterns::Bool (),
+			   "Set flag for whether to calculate and output the analytical solution");
+
+	prm.declare_entry ("Output of RHS field", "false", Patterns::Bool (),
+			   "Set flag for whether to output the RHS field");
+
+	prm.declare_entry ("Output of support of each atom", "false", Patterns::Bool (),
+			   "Set flag for whether to output the support of each atom");
+
     }
     prm.leave_subsection();
 
@@ -83,7 +93,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
 				     const double &domain_size_left, const double &domain_size_right, const double &mesh_size_h,
 				     const unsigned int &repetitions_for_vacuum, const unsigned int &number_of_global_refinement,
                                      const unsigned int &number_of_adaptive_refinement_cycles,
-                                     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly)
+				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly,
+				     const bool & flag_analytical_solution, const bool & flag_rhs_field, const bool & flag_atoms_support)
     :
     flag_rhs_assembly(flag_rhs_assembly),
     pcout (std::cout,
@@ -105,6 +116,9 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     Problemtype(Problemtype),
     PreconditionerType(PreconditionerType),
     LammpsInputFilename(LammpsInputFile),
+    flag_analytical_solution (flag_analytical_solution),
+    flag_rhs_field (flag_rhs_field),
+    flag_atoms_support (flag_atoms_support),
     r_c(r_c),
     nonzero_density_radius_parameter(nonzero_density_radius_parameter)
 
@@ -933,99 +947,105 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 {
     DataOut<dim> data_out;
 
-    LA::MPI::Vector temp_solution;
-    temp_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
-    temp_solution = solution;
-
-
-    LA::MPI::Vector temp = solution;
-    system_matrix.residual(temp,solution,system_rhs);
-    LA::MPI::Vector res_ghosted = temp_solution;
-    res_ghosted = temp;
+    LA::MPI::Vector relevant_solution;
+    relevant_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
+    relevant_solution = solution;
 
     data_out.attach_dof_handler (mg_dof_handler);
-    data_out.add_data_vector (temp_solution, "solution");
-    data_out.add_data_vector (res_ghosted, "res");
+    data_out.add_data_vector (relevant_solution, "solution");
 
     LA::MPI::Vector analytical_sol_ghost;
 
-//Output the analytical solution on mesh only for Gaussian charges problem with or without LAMMPS input
-    if(Problemtype == "GaussianCharges")
+    // FIXME: add parameter to disable calculation and output of analytical solution
+    //Output the analytical solution on mesh only for Gaussian charges problem with or without LAMMPS input
+    if(flag_analytical_solution)
     {
-        if(lammpsinput == 0)
-        {
-            //Need to implement the analytical sol for the problem on paper
-            LA::MPI::Vector analytical_sol;
-            analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-            VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution_without_lammps<dim> (r_c), analytical_sol);
-            analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
-            analytical_sol_ghost = analytical_sol;
-            data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_without_lammps");
-        }
-        else if (lammpsinput != 0)
-        {
-            LA::MPI::Vector analytical_sol;
-            analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-            VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution<dim> (r_c), analytical_sol);
-            analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
-            analytical_sol_ghost = analytical_sol;
-            data_out.add_data_vector (analytical_sol_ghost, "Analytical_sol_atoms");
-        }
+	if(Problemtype == "GaussianCharges")
+	{
+	    if(lammpsinput == 0)
+	    {
+		//Need to implement the analytical sol for the problem on paper
+		LA::MPI::Vector analytical_sol;
+		analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+		VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution_without_lammps<dim> (r_c), analytical_sol);
+		analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+		analytical_sol_ghost = analytical_sol;
+		data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_without_lammps");
+	    }
+	    else
+	    {
+		LA::MPI::Vector analytical_sol;
+		analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+		VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution<dim> (r_c), analytical_sol);
+		analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+		analytical_sol_ghost = analytical_sol;
+		data_out.add_data_vector (analytical_sol_ghost, "Analytical_sol_atoms");
+	    }
+	}
     }
-
-    LA::MPI::Vector interpolated_rhs;
-    interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-    LA::MPI::Vector interpolated_rhs_ghost;
-    interpolated_rhs_ghost.reinit(mg_dof_handler.locally_owned_dofs(), locally_relevant_set, MPI_COMM_WORLD);
-
-//Output the rhs to mesh for visualisation
-
-    if((lammpsinput != 0) && (number_of_atoms < 10))
+    // FIXME: add parameter to disable output of RHS field
+    //Output the rhs to mesh for visualisation
+    if(flag_rhs_field)
     {
-        if (Problemtype == "Step16")
-            VectorTools::interpolate (mg_dof_handler, Step16::RightHandSide<dim> (), interpolated_rhs);
-        if (Problemtype == "GaussianCharges")
-            VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
+	if((lammpsinput != 0) && (number_of_atoms < 10))
+	{
+	    LA::MPI::Vector interpolated_rhs;
+	    interpolated_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+	    LA::MPI::Vector interpolated_rhs_ghost;
+	    interpolated_rhs_ghost.reinit(mg_dof_handler.locally_owned_dofs(), locally_relevant_set, MPI_COMM_WORLD);
 
-        interpolated_rhs_ghost = interpolated_rhs;
-        data_out.add_data_vector (interpolated_rhs_ghost, "interpolated_rhs");
+	    if (Problemtype == "Step16")
+		VectorTools::interpolate (mg_dof_handler, Step16::RightHandSide<dim> (), interpolated_rhs);
+	    if (Problemtype == "GaussianCharges")
+		VectorTools::interpolate (mg_dof_handler, GaussianCharges::RightHandSide<dim> (r_c), interpolated_rhs);
+
+	    interpolated_rhs_ghost = interpolated_rhs;
+	    data_out.add_data_vector (interpolated_rhs_ghost, "interpolated_rhs");
+	}
     }
+    // FIXME: why do you want to output this? Don't do this?
+    /*
     LA::MPI::Vector system_rhs_ghost;
     system_rhs_ghost.reinit(mg_dof_handler.locally_owned_dofs(), locally_relevant_set, MPI_COMM_WORLD);
     system_rhs_ghost = system_rhs;
     data_out.add_data_vector (system_rhs_ghost, "system_rhs");
+    */
 
-//Output support for rhs of each atom with 1 being atom present in the cell
-
-    std::vector<Vector<float>> support(number_of_atoms,
-				       Vector<float>(this->triangulation.n_active_cells()));
-
-    if((lammpsinput != 0) && (flag_rhs_assembly))
+    // FIXME: add parameter, don't output unless asked!
+    // probably should not do this on 100000 atoms times 100000 cells !
+    //Output support for rhs of each atom with 1 being atom present in the cell
+    if(flag_atoms_support)
     {
-	    unsigned int cell_index = 0;
-	    std::set<unsigned int> set_atom_indices;
-	    for (auto cell: this->mg_dof_handler.active_cell_iterators())
-	    {
-		if (cell->is_locally_owned())
+	std::vector<Vector<float>> support(number_of_atoms,
+					   Vector<float>(this->triangulation.n_active_cells()));
+
+	if((lammpsinput != 0) && (flag_rhs_assembly))
+	{
+		unsigned int cell_index = 0;
+		std::set<unsigned int> set_atom_indices;
+		for (auto cell: this->mg_dof_handler.active_cell_iterators())
 		{
-		    set_atom_indices = this->charges_list_for_each_cell.at(cell);
-		    if(!set_atom_indices.empty())
+		    if (cell->is_locally_owned())
 		    {
-			for(auto i: set_atom_indices)
-			    support[i](cell_index) = 1.0;
+			set_atom_indices = this->charges_list_for_each_cell.at(cell);
+			if(!set_atom_indices.empty())
+			{
+			    for(auto i: set_atom_indices)
+				support[i](cell_index) = 1.0;
+			}
 		    }
+		    cell_index++;
+		    set_atom_indices.clear();
 		}
-		cell_index++;
-		set_atom_indices.clear();
-	    }
-	    Assert (cell_index == this->triangulation.n_active_cells(),
-		    ExcInternalError());
-	    for (unsigned int i = 0; i < number_of_atoms; i++)
-	    {
-		data_out.add_data_vector (support[i],
-					  std::string("support_") +
-					  dealii::Utilities::int_to_string(i));
-	    }
+		Assert (cell_index == this->triangulation.n_active_cells(),
+			ExcInternalError());
+		for (unsigned int i = 0; i < number_of_atoms; i++)
+		{
+		    data_out.add_data_vector (support[i],
+					      std::string("support_") +
+					      dealii::Utilities::int_to_string(i));
+		}
+	}
     }
 
     Vector<float> subdomain (triangulation.n_active_cells());

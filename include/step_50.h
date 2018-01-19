@@ -111,7 +111,7 @@ public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
 		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
                     const double &, const double &,
-		    const bool &);
+		    const bool &, const bool &, const bool &, const bool &);
     ~LaplaceProblem();
     void run ();
 
@@ -168,7 +168,7 @@ protected:
     std::string Problemtype, PreconditionerType, LammpsInputFilename;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
-    bool lammpsinput;
+    bool lammpsinput, flag_analytical_solution, flag_rhs_field, flag_atoms_support;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
