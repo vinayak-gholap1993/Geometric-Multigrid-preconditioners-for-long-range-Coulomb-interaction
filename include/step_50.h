@@ -136,6 +136,7 @@ protected:
     void project_cell_data();
 
     ConditionalOStream                        pcout;
+    TimerOutput computing_timer;
 
     parallel::distributed::Triangulation<dim>   triangulation;
     FE_Q<dim>            fe;

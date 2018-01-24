@@ -5,7 +5,7 @@ using namespace dealii;
 
 int main (int argc, char *argv[])
 {
-    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 2);
+    dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
     try
     {
@@ -13,7 +13,7 @@ int main (int argc, char *argv[])
 
         //deallog.depth_console(3);
 
-        AssertThrow(argc > 1, ExcMessage ("Invalid inputs"));
+	AssertThrow(argc > 1, ExcMessage ("Invalid inputs. \nCall this program as <./main para_filename.prm>"));
 
         std::string parameter_name (argv[1]);
 
@@ -37,6 +37,7 @@ int main (int argc, char *argv[])
 	bool flag_analytical_solution = prm.get_bool ("Output and calculation of Analytical solution");
 	bool flag_rhs_field = prm.get_bool ("Output of RHS field");
 	bool flag_atoms_support = prm.get_bool ("Output of support of each atom");
+	bool flag_rhs_assembly = prm.get_bool ("Flag for RHS evaluation optimization");
         prm.leave_subsection ();
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
@@ -54,8 +55,8 @@ int main (int argc, char *argv[])
         std::string LammpsInputFile = (prm.get("Lammps input file"));
         prm.leave_subsection();
 
-        //If rhs optimization needed turn flag to true
-	bool flag_rhs_assembly = true;
+	//If rhs optimization needed, turn flag to true
+//	bool flag_rhs_assembly = true;
 
 //        std::vector<double> r_c_variation {2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0,4.25,4.5,4.75,5.0,5.25,5.5,5.75,6.0};
 //        for(const auto & i : r_c_variation)
@@ -81,7 +82,7 @@ int main (int argc, char *argv[])
         }
         else if (d != 2 && d != 3)
         {
-            AssertThrow(false, ExcMessage("Only 2d and 3d dimensions are supported."));
+	    AssertThrow(false, ExcMessage("Only 2 and 3 dimensions are supported."));
         }
 
 //            }

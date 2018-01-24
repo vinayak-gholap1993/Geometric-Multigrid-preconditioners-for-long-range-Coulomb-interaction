@@ -60,6 +60,9 @@ void ParameterReader::declare_parameters()
 	prm.declare_entry ("Output of support of each atom", "false", Patterns::Bool (),
 			   "Set flag for whether to output the support of each atom");
 
+	prm.declare_entry ("Flag for RHS evaluation optimization", "false", Patterns::Bool(),
+			   "Set flag for whether to evaluate the RHS field with local optimization");
+
     }
     prm.leave_subsection();
 
@@ -100,6 +103,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
            == 0)),
+    computing_timer(MPI_COMM_WORLD, pcout, TimerOutput::never,
+		    TimerOutput::wall_times),
     triangulation (MPI_COMM_WORLD,Triangulation<dim>::
                   limit_level_difference_at_vertices,
                   parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy),
@@ -157,7 +162,7 @@ LaplaceProblem<dim>::~LaplaceProblem ()
 template <int dim>
 void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
 {
-
+    TimerOutput::Scope t(computing_timer, "Read LAMMPS input file");
     std::ifstream file(filename);
     unsigned int count = 0;
     std::string input;
@@ -236,6 +241,7 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
 template <int dim>
 void LaplaceProblem<dim>::rhs_assembly_optimization()
 {
+    TimerOutput::Scope t(computing_timer, "RHS assembly optimization");
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
     endc = mg_dof_handler.end();
@@ -468,6 +474,7 @@ void LaplaceProblem<dim>::project_cell_data()
 template <int dim>
 void LaplaceProblem<dim>::setup_system ()
 {
+    TimerOutput::Scope t(computing_timer, "Setup system");
     mg_dof_handler.distribute_dofs (fe);
     mg_dof_handler.distribute_mg_dofs (fe);
 
@@ -533,6 +540,7 @@ void LaplaceProblem<dim>::setup_system ()
 template <int dim>
 void LaplaceProblem<dim>::assemble_system ()
 {
+    TimerOutput::Scope t(computing_timer, "Assemble system");
     const QGauss<dim>  quadrature_formula(degree+1);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
@@ -687,6 +695,7 @@ void LaplaceProblem<dim>::assemble_system ()
 template <int dim>
 void LaplaceProblem<dim>::assemble_multigrid ()
 {
+    TimerOutput::Scope t(computing_timer, "Assemble Multigrid");
     QGauss<dim>  quadrature_formula(1+degree);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
@@ -792,11 +801,13 @@ void LaplaceProblem<dim>::assemble_multigrid ()
 template <int dim>
 void LaplaceProblem<dim>::solve ()
 {
+    TimerOutput::Scope t(computing_timer, "Solve");
     SolverControl solver_control (500, 1e-8*system_rhs.l2_norm(), false);
     SolverCG<vector_t> solver (solver_control);
 
     if(PreconditionerType == "GMG")
     {
+//	TimerOutput::Scope t(computing_timer, "Solve: GMG Preconditioner");
         MGTransferPrebuilt<vector_t> mg_transfer( mg_constrained_dofs);
         mg_transfer.build_matrices(mg_dof_handler);
 
@@ -837,6 +848,7 @@ void LaplaceProblem<dim>::solve ()
 
     else if (PreconditionerType == "Jacobi")
     {
+//	TimerOutput::Scope t(computing_timer, "Solve: Jacobi Preconditioner");
         typedef LA::MPI::PreconditionJacobi JacobiPreconditioner;
         JacobiPreconditioner preconditionJacobi;
         preconditionJacobi.initialize (system_matrix, JacobiPreconditioner::AdditionalData(0.6));
@@ -867,6 +879,7 @@ void LaplaceProblem<dim>::solve ()
 template <int dim>
 void LaplaceProblem<dim>::refine_grid ()
 {
+    TimerOutput::Scope t(computing_timer, "Refine, solution transfer and sending atoms list to child cells");
     Vector<float> estimated_error_per_cell (triangulation.n_active_cells());
 
     LA::MPI::Vector temp_solution;
@@ -1097,6 +1110,18 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 template <int dim>
 void LaplaceProblem<dim>::run ()
 {
+    pcout << "Running with "
+#ifdef USE_PETSC_LA
+	  << "PETSc"
+#else
+	  << "Trilinos"
+#endif
+	  << " on "
+	  << Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD)
+	  << " MPI rank(s)..." << std::endl;
+
+    computing_timer.reset();
+
     Timer timer_test (triangulation.get_communicator(), true);
 
     pcout << "Dimension:	" << dim << std::endl;
@@ -1166,15 +1191,19 @@ void LaplaceProblem<dim>::run ()
 
         solve ();
 
-        timer.stop();
-//	pcout << "   Elapsed wall time: " << timer.wall_time() << " seconds."<<std::endl;
-        timer.reset();
-
         //solution_gradient();
         output_results (cycle);
+
+	timer.stop();
+//	pcout << "   Elapsed wall time for refinement cycle "<<cycle <<" : " << timer.wall_time() << " seconds."<<std::endl;
+	timer.reset();
     }
+
+    computing_timer.print_summary();
+    computing_timer.reset();
+
     timer_test.stop();
-    pcout << "   \nElapsed wall time: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
+    pcout << "   \nTotal Elapsed wall time for solution: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
     timer_test.reset();
 }
 
