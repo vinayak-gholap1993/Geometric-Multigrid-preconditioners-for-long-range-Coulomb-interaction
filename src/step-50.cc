@@ -1178,13 +1178,17 @@ void LaplaceProblem<dim>::run ()
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
         pcout << std::endl;
 
-        if((cycle == 0) && (flag_rhs_assembly))
-            rhs_assembly_optimization();
+	{
+	    TimerOutput::Scope t(computing_timer, "RHS assembly");
 
-        if(dim == 2)
-            grid_output_debug(cycle);
+	    if((cycle == 0) && (flag_rhs_assembly))
+		rhs_assembly_optimization();
 
-        assemble_system ();
+	    if(dim == 2)
+		grid_output_debug(cycle);
+
+	    assemble_system ();
+	}
 
         if(PreconditionerType == "GMG")
             assemble_multigrid ();
