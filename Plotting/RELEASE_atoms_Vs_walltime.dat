@@ -1,0 +1,11 @@
+#Here plot is number of atoms Vs wall clock time 
+#Benchmark done on 20 MPI cores of single node
+#Run with RELEASE mode and using flags for output_results
+
+NumOfAtoms	WithoutRHSOptim	WithRHSOptim	ExpectedLinearScaling
+8	1.3707646041e+02	1.3804342597e+02	138.043
+216	2.7362126417e+02	2.6401449854e+02	264.0144
+1000	5.6817335381e+02	4.7416726377e+02	738.795
+2744	1.2839600971e+03	8.7833222876e+02	1794.9614
+8000	3.8904022608e+03	2.0109237905e+03	4977.995
+64000	6.8654369285e+04	2.0605819375e+04	38891.595

@@ -820,10 +820,11 @@ void LaplaceProblem<dim>::solve ()
                 coarse_matrix,
                 id);
 
-        typedef LA::MPI::PreconditionJacobi Smoother;
-        MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother;
-        mg_smoother.initialize(mg_matrices, Smoother::AdditionalData(0.5));
-        mg_smoother.set_steps(2);
+//	typedef LA::MPI::PreconditionJacobi Smoother;	 //Jacobi Smoother for MG
+	typedef LA::MPI::PreconditionSSOR Smoother;  //Gauss Seidel variant Smoother for MG
+	MGSmootherPrecondition<matrix_t, Smoother, vector_t> mg_smoother; //Default constructor with relaxation steps nue_1 = nue_2 = 1
+	mg_smoother.initialize(mg_matrices, Smoother::AdditionalData(0.5)); //Damping factor for smoother = 0.5
+	mg_smoother.set_steps(2);   //Smoothing step on finest level = 2
 
         mg::Matrix<vector_t> mg_matrix(mg_matrices);
         mg::Matrix<vector_t> mg_interface_up(mg_interface_matrices);

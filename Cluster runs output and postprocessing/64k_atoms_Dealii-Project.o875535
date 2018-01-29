@@ -1,0 +1,91 @@
+Starting prologue... Fri Jan 26 22:18:53 CET 2018
+Master node: e1107
+Kill all process from other users
+Adjust oom killer config
+Clearing buffers and caches on the nodes.
+Power management available, setting specified frequency of 2200000 using performance governor
+End of prologue: Fri Jan 26 22:18:59 CET 2018
+Problem type is:   GaussianCharges
+Preconditioner :    Jacobi
+Rhs assembly optimization ENABLED
+Running with Trilinos on 20 MPI rank(s)...
+Dimension:	3
+Number of atoms: 64000
+Cycle 0:
+   Number of active cells:       1728000
+   Number of degrees of freedom: 1771561 (by level: 1771561)
+   Starting value 2.366590
+   CG converged in 198 iterations.
+   Convergence value 1.946074e-08
+   L1 solution norm 8.3864514914e+03
+   L2 solution norm 1.4939319883e+01
+   LInfinity solution norm 4.1075885467e-01
+Cycle 1:
+   Number of active cells:       1728560
+   Number of degrees of freedom: 1772625 (by level: 1771561, 1368)
+   Starting value 0.1251562155
+   CG converged in 109 iterations.
+   Convergence value 2.1925394601e-08
+   L1 solution norm 8.4607135203e+03
+   L2 solution norm 1.5804589216e+01
+   LInfinity solution norm 4.0238225606e-01
+Cycle 2:
+   Number of active cells:       1749672
+   Number of degrees of freedom: 1806157 (by level: 1771561, 42668)
+   Starting value 0.2648235257
+   CG converged in 102 iterations.
+   Convergence value 1.8234654014e-08
+   L1 solution norm 9.2308699172e+03
+   L2 solution norm 1.9817584623e+01
+   LInfinity solution norm 4.0483753861e-01
+Cycle 3:
+   Number of active cells:       1785904
+   Number of degrees of freedom: 1849073 (by level: 1771561, 90812, 2200)
+   Starting value 0.2952727847
+   CG converged in 117 iterations.
+   Convergence value 1.7826018898e-08
+   L1 solution norm 1.0764020764e+04
+   L2 solution norm 2.4756758632e+01
+   LInfinity solution norm 4.1120030188e-01
+Cycle 4:
+   Number of active cells:       1849296
+   Number of degrees of freedom: 1926877 (by level: 1771561, 170516, 14336)
+   Starting value 0.2322727084
+   CG converged in 108 iterations.
+   Convergence value 1.7323203617e-08
+   L1 solution norm 1.3403735985e+04
+   L2 solution norm 3.3788949256e+01
+   LInfinity solution norm 4.1196400035e-01
+
+
++---------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start    | 2.055e+04s |            |
+|                                             |            |            |
+| Section                         | no. calls |  wall time | % of total |
++---------------------------------+-----------+------------+------------+
+| Assemble system                 |         5 | 1.839e+02s |  8.95e-01% |
+| RHS assembly                    |         5 | 7.084e+03s |  3.45e+01% |
+| RHS assembly optimization       |         1 | 6.900e+03s |  3.36e+01% |
+| Read LAMMPS input file          |         1 | 1.701e-01s | 0.000e+00% |
+| Refine, solution transfer and se|         4 | 1.362e+03s |  6.63e+00% |
+| Setup system                    |         5 | 1.854e+02s |  9.02e-01% |
+| Solve                           |         5 | 6.479e+00s | 0.000e+00% |
++---------------------------------+-----------+------------+------------+
+
+   
+Total Elapsed wall time for solution: 2.0553131269e+04 seconds.
+
+Starting epilogue... Sat Jan 27 04:01:44 CET 2018
+=== JOB_STATISTICS ===
+=== current date     : Sat Jan 27 04:01:44 CET 2018
+= Job-ID             : 875535.eadm
+= Job-Name           : 64k_atoms_Dealii-Project
+= Queue              : work
+= PBS_O_WORKDIR      : /home/woody/iwtm/iwtm003h/Dealii-Project
+= Requested resources: ncpus=1,neednodes=5:ppn=40:f2.2,nodes=5:ppn=40:f2.2,walltime=24:00:00
+= Used resources     : cput=114:11:03,mem=66396664kb,vmem=94422864kb,walltime=05:42:43
+= Node list          : e1107,e1102,e1013,e1011,e0916
+= AccessKey          : 10a9cd85
+======================
+Power management available, setting all CPUs to ondemand govenor
+End of epilogue: Sat Jan 27 04:01:45 CET 2018
