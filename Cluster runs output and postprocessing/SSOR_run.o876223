@@ -1,0 +1,376 @@
+Starting prologue... Mon Jan 29 21:01:06 CET 2018
+Master node: e0324
+Kill all process from other users
+Adjust oom killer config
+Clearing buffers and caches on the nodes.
+Power management available, setting specified frequency of 2200000 using performance governor
+End of prologue: Mon Jan 29 21:01:13 CET 2018
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Rhs assembly optimization ENABLED
+Running with Trilinos on 20 MPI rank(s)...
+Dimension:	3
+Number of atoms: 8
+Cycle 0:
+   Number of active cells:       85184
+   Number of degrees of freedom: 91125 (by level: 91125)
+   Starting value 0.670321
+   CG converged in 1 iterations.
+   Convergence value 7.192166e-11
+   L1 solution norm 1.1011927052e+02
+   L2 solution norm 2.6121515370e+00
+   LInfinity solution norm 2.4546782677e-01
+Cycle 1:
+   Number of active cells:       85744
+   Number of degrees of freedom: 92129 (by level: 91125, 1260)
+   Starting value 0.1205202179
+   CG converged in 6 iterations.
+   Convergence value 7.9592738117e-10
+   L1 solution norm 1.4735198049e+02
+   L2 solution norm 3.7417663873e+00
+   LInfinity solution norm 2.3351741097e-01
+Cycle 2:
+   Number of active cells:       87648
+   Number of degrees of freedom: 94321 (by level: 91125, 3802)
+   Starting value 0.1143630641
+   CG converged in 8 iterations.
+   Convergence value 1.0599000820e-09
+   L1 solution norm 2.9481042145e+02
+   L2 solution norm 5.7530696361e+00
+   LInfinity solution norm 2.3133849171e-01
+Cycle 3:
+   Number of active cells:       91344
+   Number of degrees of freedom: 99295 (by level: 91125, 5941, 3880)
+   Starting value 0.0672254259
+   CG converged in 7 iterations.
+   Convergence value 3.3081230542e-10
+   L1 solution norm 6.2948047076e+02
+   L2 solution norm 9.3281411789e+00
+   LInfinity solution norm 2.3094694979e-01
+Cycle 4:
+   Number of active cells:       99464
+   Number of degrees of freedom: 109269 (by level: 91125, 8929, 12680)
+   Starting value 0.0583610560
+   CG converged in 8 iterations.
+   Convergence value 2.2205876246e-10
+   L1 solution norm 1.3749817261e+03
+   L2 solution norm 1.3934806972e+01
+   LInfinity solution norm 2.3159176162e-01
+
+
++---------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start    | 1.341e+02s |            |
+|                                             |            |            |
+| Section                         | no. calls |  wall time | % of total |
++---------------------------------+-----------+------------+------------+
+| Assemble Multigrid              |         5 | 1.977e+00s |  1.47e+00% |
+| Assemble system                 |         5 | 2.103e+00s |  1.57e+00% |
+| RHS assembly                    |         5 | 2.163e+00s |  1.61e+00% |
+| RHS assembly optimization       |         1 | 5.977e-02s | 0.000e+00% |
+| Read LAMMPS input file          |         1 | 1.691e-02s | 0.000e+00% |
+| Refine, solution transfer and se|         4 | 7.943e+01s |  5.92e+01% |
+| Setup system                    |         5 | 1.095e+01s |  8.16e+00% |
+| Solve                           |         5 | 1.238e+00s |  9.23e-01% |
++---------------------------------+-----------+------------+------------+
+
+   
+Total Elapsed wall time for solution: 1.3424513062e+02 seconds.
+
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Rhs assembly optimization ENABLED
+Running with Trilinos on 20 MPI rank(s)...
+Dimension:	3
+Number of atoms: 216
+Cycle 0:
+   Number of active cells:       140608
+   Number of degrees of freedom: 148877 (by level: 148877)
+   Starting value 0.852546
+   CG converged in 1 iterations.
+   Convergence value 9.652617e-11
+   L1 solution norm 8.8476211506e+02
+   L2 solution norm 7.1268135110e+00
+   LInfinity solution norm 3.6788122870e-01
+Cycle 1:
+   Number of active cells:       141168
+   Number of degrees of freedom: 149941 (by level: 148877, 1368)
+   Starting value 0.1251645246
+   CG converged in 6 iterations.
+   Convergence value 8.2593477682e-10
+   L1 solution norm 9.4886825174e+02
+   L2 solution norm 8.4502296180e+00
+   LInfinity solution norm 3.5711994858e-01
+Cycle 2:
+   Number of active cells:       145480
+   Number of degrees of freedom: 156113 (by level: 148877, 8828)
+   Starting value 0.1603554207
+   CG converged in 8 iterations.
+   Convergence value 5.2334531143e-10
+   L1 solution norm 1.3841601126e+03
+   L2 solution norm 1.2763427391e+01
+   LInfinity solution norm 3.5935134335e-01
+Cycle 3:
+   Number of active cells:       153488
+   Number of degrees of freedom: 166245 (by level: 148877, 17372, 3496)
+   Starting value 0.1315238387
+   CG converged in 8 iterations.
+   Convergence value 6.1184144008e-10
+   L1 solution norm 2.1344010328e+03
+   L2 solution norm 1.7923229347e+01
+   LInfinity solution norm 3.6709828362e-01
+Cycle 4:
+   Number of active cells:       172472
+   Number of degrees of freedom: 190839 (by level: 148877, 29982, 20328)
+   Starting value 0.0959735301
+   CG converged in 8 iterations.
+   Convergence value 7.4920428100e-10
+   L1 solution norm 4.0507093038e+03
+   L2 solution norm 2.7317716484e+01
+   LInfinity solution norm 3.6786175431e-01
+
+
++---------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start    | 2.629e+02s |            |
+|                                             |            |            |
+| Section                         | no. calls |  wall time | % of total |
++---------------------------------+-----------+------------+------------+
+| Assemble Multigrid              |         5 | 3.403e+00s |  1.29e+00% |
+| Assemble system                 |         5 | 7.274e+00s |  2.77e+00% |
+| RHS assembly                    |         5 | 9.440e+00s |  3.59e+00% |
+| RHS assembly optimization       |         1 | 2.166e+00s |  8.24e-01% |
+| Read LAMMPS input file          |         1 | 1.321e-02s | 0.000e+00% |
+| Refine, solution transfer and se|         4 | 1.289e+02s |  4.90e+01% |
+| Setup system                    |         5 | 1.768e+01s |  6.73e+00% |
+| Solve                           |         5 | 2.365e+00s |  9.00e-01% |
++---------------------------------+-----------+------------+------------+
+
+   
+Total Elapsed wall time for solution: 2.6297296924e+02 seconds.
+
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Rhs assembly optimization ENABLED
+Running with Trilinos on 20 MPI rank(s)...
+Dimension:	3
+Number of atoms: 1000
+Cycle 0:
+   Number of active cells:       216000
+   Number of degrees of freedom: 226981 (by level: 226981)
+   Starting value 1.003392
+   CG converged in 1 iterations.
+   Convergence value 9.275083e-11
+   L1 solution norm 1.9460967173e+03
+   L2 solution norm 9.7483594196e+00
+   LInfinity solution norm 3.9163097699e-01
+Cycle 1:
+   Number of active cells:       216560
+   Number of degrees of freedom: 228045 (by level: 226981, 1368)
+   Starting value 0.1251575549
+   CG converged in 6 iterations.
+   Convergence value 8.2676324100e-10
+   L1 solution norm 2.0153254940e+03
+   L2 solution norm 1.0904562480e+01
+   LInfinity solution norm 3.8223549762e-01
+Cycle 2:
+   Number of active cells:       222552
+   Number of degrees of freedom: 237097 (by level: 226981, 12428)
+   Starting value 0.1755843404
+   CG converged in 7 iterations.
+   Convergence value 6.3469725406e-09
+   L1 solution norm 2.5234052959e+03
+   L2 solution norm 1.5275034038e+01
+   LInfinity solution norm 3.8469573376e-01
+Cycle 3:
+   Number of active cells:       233584
+   Number of degrees of freedom: 250493 (by level: 226981, 26012, 2200)
+   Starting value 0.1613736963
+   CG converged in 8 iterations.
+   Convergence value 6.7524691815e-10
+   L1 solution norm 3.4052686577e+03
+   L2 solution norm 1.9985531360e+01
+   LInfinity solution norm 3.9155568558e-01
+Cycle 4:
+   Number of active cells:       253296
+   Number of degrees of freedom: 275833 (by level: 226981, 44084, 14336)
+   Starting value 0.1162732980
+   CG converged in 8 iterations.
+   Convergence value 7.1232247642e-10
+   L1 solution norm 5.2563108911e+03
+   L2 solution norm 2.8981855885e+01
+   LInfinity solution norm 3.9231395188e-01
+
+
++---------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start    | 4.640e+02s |            |
+|                                             |            |            |
+| Section                         | no. calls |  wall time | % of total |
++---------------------------------+-----------+------------+------------+
+| Assemble Multigrid              |         5 | 4.675e+00s |  1.01e+00% |
+| Assemble system                 |         5 | 1.008e+01s |  2.17e+00% |
+| RHS assembly                    |         5 | 2.362e+01s |  5.09e+00% |
+| RHS assembly optimization       |         1 | 1.354e+01s |  2.92e+00% |
+| Read LAMMPS input file          |         1 | 2.021e-02s | 0.000e+00% |
+| Refine, solution transfer and se|         4 | 1.784e+02s |  3.85e+01% |
+| Setup system                    |         5 | 2.538e+01s |  5.47e+00% |
+| Solve                           |         5 | 3.624e+00s |  7.81e-01% |
++---------------------------------+-----------+------------+------------+
+
+   
+Total Elapsed wall time for solution: 4.6433199789e+02 seconds.
+
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Rhs assembly optimization ENABLED
+Running with Trilinos on 20 MPI rank(s)...
+Dimension:	3
+Number of atoms: 2744
+Cycle 0:
+   Number of active cells:       314432
+   Number of degrees of freedom: 328509 (by level: 328509)
+   Starting value 1.162214
+   CG converged in 1 iterations.
+   Convergence value 9.585157e-11
+   L1 solution norm 3.0457020153e+03
+   L2 solution norm 1.1485522157e+01
+   LInfinity solution norm 4.0115020635e-01
+Cycle 1:
+   Number of active cells:       314992
+   Number of degrees of freedom: 329573 (by level: 328509, 1368)
+   Starting value 0.1251565950
+   CG converged in 6 iterations.
+   Convergence value 8.2678597263e-10
+   L1 solution norm 3.1170861399e+03
+   L2 solution norm 1.2535989284e+01
+   LInfinity solution norm 3.9225188645e-01
+Cycle 2:
+   Number of active cells:       323000
+   Number of degrees of freedom: 341889 (by level: 328509, 16460)
+   Starting value 0.1899569695
+   CG converged in 7 iterations.
+   Convergence value 6.5847304356e-09
+   L1 solution norm 3.6820030940e+03
+   L2 solution norm 1.6817333768e+01
+   LInfinity solution norm 3.9471068099e-01
+Cycle 3:
+   Number of active cells:       337392
+   Number of degrees of freedom: 359221 (by level: 328509, 34652, 2200)
+   Starting value 0.1849596075
+   CG converged in 7 iterations.
+   Convergence value 7.0603769195e-09
+   L1 solution norm 4.7143491485e+03
+   L2 solution norm 2.1673617377e+01
+   LInfinity solution norm 4.0133083390e-01
+Cycle 4:
+   Number of active cells:       362144
+   Number of degrees of freedom: 390753 (by level: 328509, 60020, 14336)
+   Starting value 0.1360212040
+   CG converged in 8 iterations.
+   Convergence value 9.6583654528e-10
+   L1 solution norm 6.7554300006e+03
+   L2 solution norm 3.0803546518e+01
+   LInfinity solution norm 4.0209400032e-01
+
+
++---------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start    | 8.746e+02s |            |
+|                                             |            |            |
+| Section                         | no. calls |  wall time | % of total |
++---------------------------------+-----------+------------+------------+
+| Assemble Multigrid              |         5 | 6.884e+00s |  7.87e-01% |
+| Assemble system                 |         5 | 1.507e+01s |  1.72e+00% |
+| RHS assembly                    |         5 | 7.044e+01s |  8.05e+00% |
+| RHS assembly optimization       |         1 | 5.537e+01s |  6.33e+00% |
+| Read LAMMPS input file          |         1 | 2.602e-02s | 0.000e+00% |
+| Refine, solution transfer and se|         4 | 2.796e+02s |  3.20e+01% |
+| Setup system                    |         5 | 3.915e+01s |  4.48e+00% |
+| Solve                           |         5 | 5.456e+00s |  6.24e-01% |
++---------------------------------+-----------+------------+------------+
+
+   
+Total Elapsed wall time for solution: 8.7487889685e+02 seconds.
+
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Rhs assembly optimization ENABLED
+Running with Trilinos on 20 MPI rank(s)...
+Dimension:	3
+Number of atoms: 8000
+Cycle 0:
+   Number of active cells:       512000
+   Number of degrees of freedom: 531441 (by level: 531441)
+   Starting value 1.414579
+   CG converged in 1 iterations.
+   Convergence value 9.984833e-11
+   L1 solution norm 4.5668379510e+03
+   L2 solution norm 1.3076018125e+01
+   LInfinity solution norm 4.0709002766e-01
+Cycle 1:
+   Number of active cells:       512560
+   Number of degrees of freedom: 532505 (by level: 531441, 1368)
+   Starting value 0.1251563007
+   CG converged in 5 iterations.
+   Convergence value 1.1833990174e-08
+   L1 solution norm 4.6397092513e+03
+   L2 solution norm 1.4037998973e+01
+   LInfinity solution norm 3.9849843644e-01
+Cycle 2:
+   Number of active cells:       523592
+   Number of degrees of freedom: 549717 (by level: 531441, 22508)
+   Starting value 0.2096277655
+   CG converged in 7 iterations.
+   Convergence value 6.2508850943e-09
+   L1 solution norm 5.2661366103e+03
+   L2 solution norm 1.8194026294e+01
+   LInfinity solution norm 4.0095522611e-01
+Cycle 3:
+   Number of active cells:       543024
+   Number of degrees of freedom: 572953 (by level: 531441, 47612, 2200)
+   Starting value 0.2154970224
+   CG converged in 7 iterations.
+   Convergence value 7.7416019974e-09
+   L1 solution norm 6.4544292608e+03
+   L2 solution norm 2.3105741539e+01
+   LInfinity solution norm 4.0742487247e-01
+Cycle 4:
+   Number of active cells:       576428
+   Number of degrees of freedom: 614973 (by level: 531441, 85316, 14336)
+   Starting value 0.1628393013
+   CG converged in 8 iterations.
+   Convergence value 1.1293737834e-09
+   L1 solution norm 8.6998257660e+03
+   L2 solution norm 3.2253527954e+01
+   LInfinity solution norm 4.0818893695e-01
+
+
++---------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start    | 1.990e+03s |            |
+|                                             |            |            |
+| Section                         | no. calls |  wall time | % of total |
++---------------------------------+-----------+------------+------------+
+| Assemble Multigrid              |         5 | 1.090e+01s |  5.48e-01% |
+| Assemble system                 |         5 | 5.257e+01s |  2.64e+00% |
+| RHS assembly                    |         5 | 3.094e+02s |  1.55e+01% |
+| RHS assembly optimization       |         1 | 2.568e+02s |  1.29e+01% |
+| Read LAMMPS input file          |         1 | 8.478e-02s | 0.000e+00% |
+| Refine, solution transfer and se|         4 | 3.997e+02s |  2.01e+01% |
+| Setup system                    |         5 | 5.837e+01s |  2.93e+00% |
+| Solve                           |         5 | 8.823e+00s |  4.43e-01% |
++---------------------------------+-----------+------------+------------+
+
+   
+Total Elapsed wall time for solution: 1.9902427261e+03 seconds.
+
+Starting epilogue... Mon Jan 29 22:03:30 CET 2018
+=== JOB_STATISTICS ===
+=== current date     : Mon Jan 29 22:03:30 CET 2018
+= Job-ID             : 876223.eadm
+= Job-Name           : SSOR_run
+= Queue              : work
+= PBS_O_WORKDIR      : /home/woody/iwtm/iwtm003h/Dealii-Project
+= Requested resources: ncpus=1,neednodes=1:ppn=40:f2.2,nodes=1:ppn=40:f2.2,walltime=24:00:00
+= Used resources     : cput=20:43:24,mem=21644096kb,vmem=45778040kb,walltime=01:02:17
+= Node list          : e0324
+= AccessKey          : 7fb612bf
+======================
+Power management available, setting all CPUs to ondemand govenor
+End of epilogue: Mon Jan 29 22:03:31 CET 2018

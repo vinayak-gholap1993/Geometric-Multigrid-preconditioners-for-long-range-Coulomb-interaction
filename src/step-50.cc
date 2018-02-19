@@ -273,8 +273,8 @@ void LaplaceProblem<dim>::rhs_assembly_optimization()
             atom_indices.clear();
         }
 
-    std::set<unsigned int>::iterator iter;
-    typename std::map<cell_it, std::set<unsigned int> >::iterator it;
+//    std::set<unsigned int>::iterator iter;
+//    typename std::map<cell_it, std::set<unsigned int> >::iterator it;
 
 //        //Print the contents of std::map as cell level, index : atom_list
 //        for(it = charges_list_for_each_cell.begin(); it != charges_list_for_each_cell.end(); ++it)
@@ -1106,6 +1106,80 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     }
 }
 
+template <int dim>
+void LaplaceProblem<dim>::postprocess_electrostatic_energy()
+{
+    //Evaluation of analytical energy. Part A
+    static double analytical_energy = 0.0;
+    for(unsigned int i = 0; i < atom_positions.size(); ++i)
+	for(unsigned int j = 0; j < atom_positions.size(); ++j)
+	    if(j != i)
+		{
+		    double radial_distance = 0.0;
+		    radial_distance = this->atom_positions[i].distance(this->atom_positions[j]);
+		    analytical_energy += 0.5 * this->charges[i] * this->charges[j] / radial_distance;
+		}
+
+    //Evaluation of energies by splitting into long- and short-ranged potentials. part B.1
+    static double short_ranged_energy_contribution = 0.0;
+    for(unsigned int i = 0; i < atom_positions.size(); ++i)
+	for(unsigned int j = 0; j < atom_positions.size(); ++j)
+	    if(j != i)
+		{
+		    double V_j_short_ranged = 0.0, radial_distance = 0.0;
+		    radial_distance = this->atom_positions[i].distance(this->atom_positions[j]);
+//		    if(std::abs(radial_distance - (this->r_c * this->nonzero_density_radius_parameter)) <=
+//				std::numeric_limits<double>::epsilon())
+			{
+			    V_j_short_ranged = (-1.0 + erf(std::abs(radial_distance) / this->r_c)) / (radial_distance);
+			    short_ranged_energy_contribution += 0.5 * this->charges[i] * this->charges[j] * V_j_short_ranged;
+			}
+		}
+
+    //Evaluation of FE solution, long-ranged potential. Part B.2
+    static double fe_solution_energy_contribution = 0.0;
+    vector_t final_solution;
+    final_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
+    final_solution = solution;
+    Functions::FEFieldFunction<dim,DoFHandler<dim>,vector_t> solution_function (mg_dof_handler, final_solution);
+    double interpolated_solution = 0.0;
+
+    for(unsigned int i = 0; i < atom_positions.size(); ++i)
+	{
+	for(unsigned int j = 0; j < atom_positions.size(); ++j)
+	    {
+		double solution_at_point = 0.0;
+		bool point_found = true;
+		try
+		{
+		    solution_at_point = solution_function.value(this->atom_positions[j]);
+		}
+		catch (const VectorTools::ExcPointNotAvailableHere &)
+		{
+		    point_found = false;
+		}
+
+		if(point_found == true)
+		    {
+		      interpolated_solution += solution_at_point;
+		    }
+	    }
+	fe_solution_energy_contribution += 0.5 * this->charges[i] * interpolated_solution;
+	}
+
+    //Evaluation of repeated energy for I == J. Part B.3
+    static double repeated_contribution = 0.0;
+    for(unsigned int i = 0; i < atom_positions.size(); ++i)
+	{
+	    repeated_contribution += -1.0 * this->charges[i] * this->charges[i] / (std::sqrt(numbers::PI) * this->r_c);
+	}
+
+    static double total_energy_with_split = short_ranged_energy_contribution + fe_solution_energy_contribution - repeated_contribution;
+
+    pcout << "Total analytical electrostatic energy :   " << analytical_energy << std::endl;
+    pcout << "Total electrostatic energy with split in short- and long-ranged : " << total_energy_with_split << std::endl;
+
+}
 
 
 template <int dim>
@@ -1210,6 +1284,8 @@ void LaplaceProblem<dim>::run ()
     timer_test.stop();
     pcout << "   \nTotal Elapsed wall time for solution: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
     timer_test.reset();
+
+    postprocess_electrostatic_energy();
 }
 
 

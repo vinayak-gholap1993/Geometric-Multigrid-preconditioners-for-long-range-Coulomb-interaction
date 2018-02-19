@@ -97,6 +97,7 @@ using namespace dealii::LinearAlgebraTrilinos;
 #include <set>
 #include <map>
 #include <iomanip>
+#include <limits>
 
 using namespace dealii;
 
@@ -134,6 +135,7 @@ protected:
                          const typename parallel::distributed::Triangulation<dim,dim>::CellStatus , const void *);
     void prepare_for_coarsening_and_refinement ();
     void project_cell_data();
+    void postprocess_electrostatic_energy();
 
     ConditionalOStream                        pcout;
     TimerOutput computing_timer;
