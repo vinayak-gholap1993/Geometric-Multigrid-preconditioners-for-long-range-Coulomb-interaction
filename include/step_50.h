@@ -271,9 +271,14 @@ template <int dim>
 class Analytical_Solution : public Function<dim>
 {
 public:
+    //Add atom_posn and atom_charge and use them in value
     double r_c;
-    Analytical_Solution(double _r_c):Function<dim>() {
+    Point<dim> atom_position;
+    double charge;
+    Analytical_Solution(double _r_c, Point<dim> _pos, double _charge):Function<dim>() {
         r_c = _r_c;
+	atom_position = _pos;
+	charge = _charge;
     }
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
@@ -293,14 +298,10 @@ template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
 {
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
-    double radial_distance_squared = 0.0, return_value = 0.0, constant_value = 0.0;
+    const double radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
+    const double constant_value = radial_distance_squared * r_c_squared_inverse;
 
-    radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
-
-    constant_value = radial_distance_squared * r_c_squared_inverse;
-
-    return_value = ((8.0 * exp(-4.0 * constant_value ) - exp(-constant_value))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5))) ;
-    return return_value;
+    return (8.0 * exp(-4.0 * constant_value ) - exp(-constant_value))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
 }
 
 template <int dim>
@@ -313,21 +314,19 @@ double Coefficient<dim>::value (const Point<dim> &,
 template <int dim>
 double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) const
 {
-    double radial_distance = std::sqrt(p.square());
-    double return_value = 0;
+    // Add the distance between atom position and point
+    // Multiplied by the charge value. check V_I^L
+    // This will be the analytical sol for single atom
 
-    return_value = (erf(radial_distance / r_c) / radial_distance) ;
-    return return_value;
+    const double radial_distance = atom_position.distance(p);
+    return (charge * erf(radial_distance / r_c))/ radial_distance;
 }
 
 template <int dim>
 double Analytical_Solution_without_lammps<dim>::value(const Point<dim> &p, const unsigned int) const
 {
-    double radial_distance = std::sqrt(p.square());
-    double return_value = 0;
-
-    return_value = ((erf(2.0 * radial_distance / r_c) - erf(radial_distance / r_c)) / (4.0 * numbers::PI *radial_distance)) ;
-    return return_value;
+    const double radial_distance = std::sqrt(p.square());
+    return (erf(2.0 * radial_distance / r_c) - erf(radial_distance / r_c)) / (4.0 * numbers::PI *radial_distance) ;
 }
 }
 
