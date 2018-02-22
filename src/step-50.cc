@@ -472,8 +472,8 @@ void LaplaceProblem<dim>::project_cell_data()
 }
 
 template <int dim>
-const double LaplaceProblem<dim>::long_ranged_potential(const Point<dim> & point, const Point<dim> & atom_position,
-						    const double & charge)
+double LaplaceProblem<dim>::long_ranged_potential(const Point<dim> & point, const Point<dim> & atom_position,
+						    const double & charge) const
 {
     const double radial_distance = point.distance(atom_position);
     return charge * (erf(radial_distance/ this->r_c) / radial_distance);
@@ -985,9 +985,6 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     data_out.add_data_vector (relevant_solution, "solution");
 
     LA::MPI::Vector analytical_sol_ghost;
-    std::vector<LA::MPI::Vector> analytical_sol_ghost_lammps(number_of_atoms,
-							     LA::MPI::Vector (mg_dof_handler.locally_owned_dofs(),
-							     locally_relevant_set,MPI_COMM_WORLD));
 
     // FIXME: add parameter to disable calculation and output of analytical solution
     //Output the analytical solution on mesh only for Gaussian charges problem with or without LAMMPS input
@@ -1010,6 +1007,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 	    {
 		if (number_of_atoms < 10)
 		    {
+			LA::MPI::Vector total_analytical_sol;
+			total_analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
 			for(unsigned int i = 0; i < number_of_atoms; i++)
 			    {
 				//TODO: check for sol_ghost with soln for all atoms added in it
@@ -1021,11 +1020,11 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 												     this->charges[i]),
 							  analytical_sol);
 
-				analytical_sol_ghost_lammps[i] = analytical_sol;
-				data_out.add_data_vector (analytical_sol_ghost_lammps[i],
-							  std::string("Analytical_sol_atom_") +
-							  dealii::Utilities::int_to_string(i));
+				total_analytical_sol += analytical_sol;
 			    }
+			analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+			analytical_sol_ghost = total_analytical_sol;
+			data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_atoms");
 		    }
 	    }
 	}
