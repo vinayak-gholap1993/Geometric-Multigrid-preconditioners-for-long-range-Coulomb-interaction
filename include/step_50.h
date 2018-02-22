@@ -136,6 +136,8 @@ protected:
     void prepare_for_coarsening_and_refinement ();
     void project_cell_data();
     void postprocess_electrostatic_energy();
+    const double long_ranged_potential(const Point<dim> & , const Point<dim> &, const double &);
+    const double short_ranged_potential(const Point<dim> & , const Point<dim> &, const double &);
 
     ConditionalOStream                        pcout;
     TimerOutput computing_timer;
@@ -319,7 +321,7 @@ double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) 
     // This will be the analytical sol for single atom
 
     const double radial_distance = atom_position.distance(p);
-    return (charge * erf(radial_distance / r_c))/ radial_distance;
+    return charge * (erf(radial_distance / r_c)/ radial_distance);
 }
 
 template <int dim>

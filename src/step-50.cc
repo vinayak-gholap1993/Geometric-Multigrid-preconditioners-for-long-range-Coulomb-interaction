@@ -472,6 +472,22 @@ void LaplaceProblem<dim>::project_cell_data()
 }
 
 template <int dim>
+const double LaplaceProblem<dim>::long_ranged_potential(const Point<dim> & point, const Point<dim> & atom_position,
+						    const double & charge)
+{
+    const double radial_distance = point.distance(atom_position);
+    return charge * (erf(radial_distance/ this->r_c) / radial_distance);
+}
+
+template <int dim>
+const double LaplaceProblem<dim>::short_ranged_potential(const Point<dim> & point, const Point<dim> & atom_position,
+						    const double & charge)
+{
+    const double radial_distance = point.distance(atom_position);
+    return charge * (erfc(radial_distance/ this->r_c) / radial_distance);
+}
+
+template <int dim>
 void LaplaceProblem<dim>::setup_system ()
 {
     TimerOutput::Scope t(computing_timer, "Setup system");
@@ -984,7 +1000,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 		//Need to implement the analytical sol for the problem on paper
 		LA::MPI::Vector analytical_sol;
 		analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-		VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution_without_lammps<dim> (r_c), analytical_sol);
+		VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution_without_lammps<dim> (r_c),
+					  analytical_sol);
 		analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
 		analytical_sol_ghost = analytical_sol;
 		data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_without_lammps");
@@ -992,18 +1009,23 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 	    else
 	    {
 		if (number_of_atoms < 10)
-		for(unsigned int i = 0; i < number_of_atoms; i++)
 		    {
-			//TODO: check for sol_ghost with soln for all atoms added in it
-			LA::MPI::Vector analytical_sol;
-			analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-			VectorTools::interpolate (mg_dof_handler, GaussianCharges::Analytical_Solution<dim> (r_c, this->atom_positions[i],
-													     this->charges[i]) , analytical_sol);
-//			analytical_sol_ghost_lammps.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
-			analytical_sol_ghost_lammps[i] = analytical_sol;
-			data_out.add_data_vector (analytical_sol_ghost_lammps[i],
-						  std::string("Analytical_sol_atom_") +
-						  dealii::Utilities::int_to_string(i));
+			for(unsigned int i = 0; i < number_of_atoms; i++)
+			    {
+				//TODO: check for sol_ghost with soln for all atoms added in it
+				LA::MPI::Vector analytical_sol;
+				analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+				VectorTools::interpolate (mg_dof_handler,
+							  GaussianCharges::Analytical_Solution<dim> (r_c,
+												     this->atom_positions[i],
+												     this->charges[i]),
+							  analytical_sol);
+
+				analytical_sol_ghost_lammps[i] = analytical_sol;
+				data_out.add_data_vector (analytical_sol_ghost_lammps[i],
+							  std::string("Analytical_sol_atom_") +
+							  dealii::Utilities::int_to_string(i));
+			    }
 		    }
 	    }
 	}
@@ -1120,6 +1142,7 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 template <int dim>
 void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 {
+    TimerOutput::Scope t(computing_timer, "Postprocess electrostatic energy");
     //Evaluation of analytical energy. Part A
     double analytical_energy = 0.0;
     for(unsigned int i = 0; i < number_of_atoms; ++i)
@@ -1129,23 +1152,24 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 		analytical_energy += this->charges[i] * this->charges[j] / radial_distance;
 	    }
 
-//    analytical_energy = Utilities::MPI::sum (analytical_energy, MPI_COMM_WORLD);
-
     //Evaluation of energies by splitting into long- and short-ranged potentials. part B.1
     double short_ranged_energy_contribution = 0.0;
     for(unsigned int i = 0; i < number_of_atoms; ++i)
 	for(unsigned int j = i+1; j < number_of_atoms; ++j)
 	    {
-		const double radial_distance = this->atom_positions[i].distance(this->atom_positions[j]);
+/*		const double radial_distance = this->atom_positions[i].distance(this->atom_positions[j]);
 //		    if(std::abs(radial_distance - (this->r_c * this->nonzero_density_radius_parameter)) <=
 //				std::numeric_limits<double>::epsilon())
 		    {
 			const double V_j_short_ranged = this->charges[j] * erfc(radial_distance/this->r_c) / radial_distance;
 			short_ranged_energy_contribution +=  this->charges[i] * V_j_short_ranged;
 		    }
+*/
+		const double V_j_short_ranged = short_ranged_potential(this->atom_positions[j],
+								       this->atom_positions[i],
+								       this->charges[j]);
+		short_ranged_energy_contribution += this->charges[i] * V_j_short_ranged;
 	    }
-
-//    short_ranged_energy_contribution = Utilities::MPI::sum (short_ranged_energy_contribution, MPI_COMM_WORLD);
 
     //Evaluation of FE solution, long-ranged potential. Part B.2
     double fe_solution_energy_contribution = 0.0;
@@ -1176,9 +1200,9 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
     const double total_energy_with_split = short_ranged_energy_contribution + fe_solution_energy_contribution - self_energy_contribution;
 
     pcout << "\nTotal analytical electrostatic energy :   " << analytical_energy << std::endl;
-    pcout << "Short-ranged energy:  " << short_ranged_energy_contribution << std::endl;
-    pcout << "FE solution long-ranged energy contributuion :    " << fe_solution_energy_contribution << std::endl;
-    pcout << "Self energy : " << self_energy_contribution << std::endl;
+    pcout << "Short-ranged energy contribution :  " << short_ranged_energy_contribution << std::endl;
+    pcout << "FE solution long-ranged energy contribution :    " << fe_solution_energy_contribution << std::endl;
+    pcout << "Self energy contribution : " << self_energy_contribution << std::endl;
     pcout << "Total electrostatic energy with split in short- and long-ranged : " << total_energy_with_split << std::endl;
     pcout << "Absolute Error between both energies :	" << std::abs(std::abs(analytical_energy) -
 								      std::abs(total_energy_with_split)) << "\n" << std::endl;
