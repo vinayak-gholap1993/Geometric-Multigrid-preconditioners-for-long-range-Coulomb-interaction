@@ -488,6 +488,68 @@ const double LaplaceProblem<dim>::short_ranged_potential(const Point<dim> & poin
 }
 
 template <int dim>
+void LaplaceProblem<dim>::compute_moments()
+{
+    const QGauss<dim>  quadrature_formula(degree+1);
+
+    FEValues<dim> fe_values (fe, quadrature_formula,
+			     update_values    |  update_gradients |
+			     update_quadrature_points  |  update_JxW_values);
+    const unsigned int   n_q_points    = quadrature_formula.size();
+    std::vector<double>    density_values (n_q_points);
+
+    const double constant_value = 4.0 * (numbers::PI)  / (std::pow(this->r_c, 3) * std::pow(numbers::PI, 1.5));
+    const double r_c_squared_inverse = 1.0 / (this->r_c * this->r_c);
+
+    // Compute the dipole moment Po
+    this->dipole_moment = 0.0;
+    for(unsigned int k = 0; k < number_of_atoms; ++k)
+	this->dipole_moment += this->charges[k] * this->atom_positions[k];
+
+    // Compute the quadrupole moment Qo
+    // numerical integration by quadrature rule
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = mg_dof_handler.begin_active(),
+    endc = mg_dof_handler.end();
+    for (; cell!=endc; ++cell)
+	if (cell->is_locally_owned())
+	{
+	    fe_values.reinit (cell);
+	    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+	    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+		{
+		    density_values[q_points] = 0.0;
+		    // Check: loop over all the atoms or the std::set of neigboring atoms
+		    // according to the localization
+		    for(unsigned int i = 0; i < number_of_atoms; ++i)
+			{
+			    const Point<dim> Xi = this->atom_positions[i];
+			    const double r = Xi.distance(quadrature_points[q_points]);
+			    const double r_squared = r*r;
+
+			    Tensor<2, dim, double> x_dyad_x = Tensor<2, dim, double>();
+			    for(unsigned int p = 0; p < dim; ++p)
+				for(unsigned int q = 0; q < dim; ++q)
+				    x_dyad_x[p][q] += quadrature_points[q_points](p) * quadrature_points[q_points](q);
+			    /*
+			    outer_product(x_dyad_x, static_cast<const Tensor< 1, dim, double> &> quadrature_points[q_points],
+					  static_cast<const Tensor< 1, dim, double> &> quadrature_points[q_points]);
+					  */
+
+			    const SymmetricTensor<2, dim> I = unit_symmetric_tensor<dim>();
+
+			    const double x_norm = quadrature_points[q_points].norm();
+
+			    density_values[q_points] +=  constant_value *
+							 exp(-r_squared * r_c_squared_inverse) *
+							 this->charges[i];
+			    this->quadrupole_moment += density_values[q_points] * (3.0 * x_dyad_x - x_norm * x_norm * I);
+			}
+		}
+	    }
+}
+
+template <int dim>
 void LaplaceProblem<dim>::setup_system ()
 {
     TimerOutput::Scope t(computing_timer, "Setup system");
@@ -510,6 +572,18 @@ void LaplaceProblem<dim>::setup_system ()
     ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
     dirichlet_boundary.insert(0);
     dirichlet_boundary_functions[0] = &homogeneous_dirichlet_bc;
+
+    // Compute the moments for each ref cycle for some given point (taken as origin)
+    compute_moments();
+    typename FunctionMap<dim>::type      dirichlet_boundary_functions_2;
+    GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
+    dirichlet_boundary_functions_2[0] = &nonzeroDBC;
+
+    VectorTools::interpolate_boundary_values (mg_dof_handler,
+					      dirichlet_boundary_functions_2,
+					      constraints);
+
+
     VectorTools::interpolate_boundary_values (mg_dof_handler,
             dirichlet_boundary_functions,
             constraints);
@@ -1292,14 +1366,15 @@ void LaplaceProblem<dim>::run ()
 	    assemble_system ();
 	}
 
-        if(PreconditionerType == "GMG")
-            assemble_multigrid ();
+	if(PreconditionerType == "GMG")
+	    assemble_multigrid ();
 
-        solve ();
+	solve ();
 
         //solution_gradient();
-        output_results (cycle);
-	postprocess_electrostatic_energy();
+	output_results (cycle);
+	if(number_of_atoms < 300)
+	    postprocess_electrostatic_energy();
 
 	timer.stop();
 //	pcout << "   Elapsed wall time for refinement cycle "<<cycle <<" : " << timer.wall_time() << " seconds."<<std::endl;

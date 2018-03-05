@@ -29,6 +29,8 @@
 #include <deal.II/base/conditional_ostream.h>
 #include <deal.II/base/parameter_handler.h>
 #include <deal.II/base/quadrature_lib.h>
+#include <deal.II/base/tensor.h>
+#include <deal.II/base/symmetric_tensor.h>
 
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -138,6 +140,7 @@ protected:
     void postprocess_electrostatic_energy();
     double long_ranged_potential(const Point<dim> & , const Point<dim> &, const double &) const;
     const double short_ranged_potential(const Point<dim> & , const Point<dim> &, const double &);
+    void compute_moments();
 
     ConditionalOStream                        pcout;
     TimerOutput computing_timer;
@@ -184,6 +187,8 @@ protected:
     std::map<cell_it, std::set<unsigned int> > charges_list_for_each_cell;
     std::size_t data_size_in_bytes;
     unsigned int offset;
+    Tensor<1, dim, double> dipole_moment;
+    Tensor<2, dim, double> quadrupole_moment;
 
 };
 }
@@ -296,6 +301,25 @@ public:
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
+// Non-zero DBC for Hartree potential by employment of quadrupole expansion
+template <int dim>
+class NonZeroDBC : public Function<dim>
+{
+public:
+    Point<dim> x0;
+    Tensor<1, dim, double> p0;
+    Tensor<2, dim, double> Q0;
+    NonZeroDBC(const Point<dim> &x0_,
+	       const Tensor<1, dim, double> &p0_,
+	       const Tensor<2, dim, double> &Q0_):Function<dim>()
+    {
+	x0 = x0_;
+	p0 = p0_;
+	Q0 = Q0_;
+    }
+    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
+};
+
 template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
 {
@@ -332,6 +356,14 @@ double Analytical_Solution_without_lammps<dim>::value(const Point<dim> &p, const
 {
     const double radial_distance = std::sqrt(p.square());
     return (erf(2.0 * radial_distance / r_c) - erf(radial_distance / r_c)) / (4.0 * numbers::PI *radial_distance) ;
+}
+
+template <int dim>
+double NonZeroDBC<dim>::value(const Point<dim> &p, const unsigned int) const
+{
+    const Tensor<1, dim, double> x_diff = p - x0;
+    const double x_diff_norm = x_diff.norm();
+    return (contract(p0, x_diff)) / (std::pow(x_diff_norm,3)) + (0.5 * contract3(x_diff, Q0, x_diff)) / (std::pow(x_diff_norm,5));
 }
 }
 
