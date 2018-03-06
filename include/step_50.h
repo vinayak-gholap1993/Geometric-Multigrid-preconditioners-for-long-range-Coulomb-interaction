@@ -119,13 +119,11 @@ public:
     void run ();
 
 protected:
-    const bool flag_rhs_assembly;
-
-    void setup_system ();
+    void setup_system (const unsigned int &);
     void assemble_system ();
     void assemble_multigrid ();
     void solve ();
-    void refine_grid ();
+    void refine_grid (const unsigned int &);
     //void solution_gradient();
     void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
@@ -140,6 +138,7 @@ protected:
     void postprocess_electrostatic_energy();
     double long_ranged_potential(const Point<dim> & , const Point<dim> &, const double &) const;
     const double short_ranged_potential(const Point<dim> & , const Point<dim> &, const double &);
+    void compute_charge_densities();
     void compute_moments();
 
     ConditionalOStream                        pcout;
@@ -170,18 +169,19 @@ protected:
 
     ParameterHandler &prm;
 
-    unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
-    double domain_size_left , domain_size_right, mesh_size_h;
-    unsigned int repetitions_for_vacuum;
-    std::string Problemtype, PreconditionerType, LammpsInputFilename;
+    const unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
+    const double domain_size_left , domain_size_right, mesh_size_h;
+    const unsigned int repetitions_for_vacuum;
+    const std::string Problemtype, PreconditionerType, LammpsInputFilename;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
-    bool lammpsinput, flag_analytical_solution, flag_rhs_field, flag_atoms_support;
+    bool lammpsinput;
+    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support, flag_rhs_assembly;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
     double * charges;
-    double r_c, nonzero_density_radius_parameter;
+    const double r_c, nonzero_density_radius_parameter;
 
     typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
     std::map<cell_it, std::set<unsigned int> > charges_list_for_each_cell;
@@ -189,6 +189,7 @@ protected:
     unsigned int offset;
     Tensor<1, dim, double> dipole_moment;
     Tensor<2, dim, double> quadrupole_moment;
+    std::vector<double>    density_values;
 
 };
 }
@@ -255,10 +256,8 @@ template <int dim>
 class RightHandSide : public Function<dim>
 {
 public:
-    double r_c;
-    RightHandSide(double _r_c):Function<dim>() {
-        r_c = _r_c;
-    }
+    const double r_c;
+    RightHandSide(const double &_r_c): Function<dim>(),r_c(_r_c) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -279,14 +278,11 @@ class Analytical_Solution : public Function<dim>
 {
 public:
     //Add atom_posn and atom_charge and use them in value
-    double r_c;
-    Point<dim> atom_position;
-    double charge;
-    Analytical_Solution(const double &_r_c, const Point<dim> &_pos, const double &_charge):Function<dim>() {
-        r_c = _r_c;
-	atom_position = _pos;
-	charge = _charge;
-    }
+    const double r_c;
+    const Point<dim> atom_position;
+    const double charge;
+    Analytical_Solution(const double &_r_c, const Point<dim> &_pos, const double &_charge)
+	: Function<dim>(),r_c(_r_c),atom_position(_pos),charge(_charge) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -294,10 +290,8 @@ template <int dim>
 class Analytical_Solution_without_lammps : public Function<dim>
 {
 public:
-    double r_c;
-    Analytical_Solution_without_lammps(double _r_c):Function<dim>() {
-        r_c = _r_c;
-    }
+    const double r_c;
+    Analytical_Solution_without_lammps(const double &_r_c): Function<dim>(), r_c(_r_c) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -306,17 +300,13 @@ template <int dim>
 class NonZeroDBC : public Function<dim>
 {
 public:
-    Point<dim> x0;
-    Tensor<1, dim, double> p0;
-    Tensor<2, dim, double> Q0;
+    const Point<dim> x0;
+    const Tensor<1, dim, double> p0;
+    const Tensor<2, dim, double> Q0;
+
     NonZeroDBC(const Point<dim> &x0_,
 	       const Tensor<1, dim, double> &p0_,
-	       const Tensor<2, dim, double> &Q0_):Function<dim>()
-    {
-	x0 = x0_;
-	p0 = p0_;
-	Q0 = Q0_;
-    }
+	       const Tensor<2, dim, double> &Q0_): Function<dim>(),x0(x0_), p0(p0_), Q0(Q0_){}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -363,7 +353,8 @@ double NonZeroDBC<dim>::value(const Point<dim> &p, const unsigned int) const
 {
     const Tensor<1, dim, double> x_diff = p - x0;
     const double x_diff_norm = x_diff.norm();
-    return (contract(p0, x_diff)) / (std::pow(x_diff_norm,3)) + (0.5 * contract3(x_diff, Q0, x_diff)) / (std::pow(x_diff_norm,5));
+    const auto x_Q_x = contract3(x_diff, Q0, x_diff);
+    return (p0 * x_diff) / (std::pow(x_diff_norm,3)) + (0.5 * x_Q_x) / (std::pow(x_diff_norm,5));
 }
 }
 
