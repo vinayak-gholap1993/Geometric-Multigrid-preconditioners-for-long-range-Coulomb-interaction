@@ -189,7 +189,7 @@ protected:
     unsigned int offset;
     Tensor<1, dim, double> dipole_moment;
     Tensor<2, dim, double> quadrupole_moment;
-    std::vector<double>    density_values;
+    double * density_values;
 
 };
 }
