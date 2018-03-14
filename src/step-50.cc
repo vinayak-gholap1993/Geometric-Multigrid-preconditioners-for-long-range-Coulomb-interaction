@@ -37,6 +37,9 @@ void ParameterReader::declare_parameters()
                            "Problem definition for RHS Function");
 
         prm.declare_entry ("Dimension", "2", Patterns::Integer(), "Problem space dimension");
+
+	prm.declare_entry ("Homogeneous Boundary Conditions", "true", Patterns::Bool (),
+			   "Set flag for homogeneous or inhomogeneous dirichlet boundary condtions");
     }
     prm.leave_subsection();
 
@@ -97,7 +100,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
 				     const unsigned int &repetitions_for_vacuum, const unsigned int &number_of_global_refinement,
                                      const unsigned int &number_of_adaptive_refinement_cycles,
 				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly,
-				     const bool & flag_analytical_solution, const bool & flag_rhs_field, const bool & flag_atoms_support)
+				     const bool & flag_analytical_solution, const bool & flag_rhs_field, const bool & flag_atoms_support,
+				     const bool & flag_boundary_conditions)
     :    
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -124,6 +128,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     flag_rhs_field (flag_rhs_field),
     flag_atoms_support (flag_atoms_support),
     flag_rhs_assembly(flag_rhs_assembly),
+    flag_boundary_conditions(flag_boundary_conditions),
     r_c(r_c),
     nonzero_density_radius_parameter(nonzero_density_radius_parameter)
 
@@ -156,9 +161,9 @@ LaplaceProblem<dim>::~LaplaceProblem ()
     mg_dof_handler.clear();
     if(flag_rhs_assembly)
 	charges_list_for_each_cell.clear();
+    density_values_for_each_cell.clear();
     delete[] atom_types;
     delete[] charges;
-    delete[] density_values;
 }
 
 
@@ -249,8 +254,6 @@ void LaplaceProblem<dim>::rhs_assembly_optimization()
     cell = mg_dof_handler.begin_active(),
     endc = mg_dof_handler.end();
 
-    double distance_from_vertex_to_atom = 0.0;
-
     for(; cell!= endc; ++cell)
         if (cell->is_locally_owned())
         {
@@ -260,9 +263,8 @@ void LaplaceProblem<dim>::rhs_assembly_optimization()
             {
                 for(unsigned int vertex_number = 0; vertex_number < GeometryInfo<dim>::vertices_per_cell; ++vertex_number)
                 {
-                    distance_from_vertex_to_atom = 0.0;
-                    const Point<dim> Xi = this->atom_positions[i];
-                    distance_from_vertex_to_atom = Xi.distance(cell->vertex(vertex_number));
+		    const Point<dim> & Xi = this->atom_positions[i];
+		    const double distance_from_vertex_to_atom = Xi.distance(cell->vertex(vertex_number));
                     if( distance_from_vertex_to_atom < nonzero_density_radius_parameter * r_c)
                     {
                         atom_indices.insert(i);
@@ -502,8 +504,8 @@ void LaplaceProblem<dim>::compute_charge_densities()
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
     const unsigned int   n_q_points    = quadrature_formula.size();
-//    this->density_values.resize(n_q_points);
-    this->density_values = new double [n_q_points]();
+
+    std::vector<double> density_values(n_q_points);
 
     const double constant_value = 4.0 * (numbers::PI)  / (std::pow(this->r_c, 3) * std::pow(numbers::PI, 1.5));
     const double r_c_squared_inverse = 1.0 / (this->r_c * this->r_c);
@@ -525,7 +527,7 @@ void LaplaceProblem<dim>::compute_charge_densities()
 
 	    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
 		{
-//		    this->density_values[q_points] = 0.0;
+		    density_values[q_points] = 0.0;
 		    // Check: loop over all the atoms or the std::set of neigboring atoms
 		    // according to the localization
 
@@ -534,9 +536,9 @@ void LaplaceProblem<dim>::compute_charge_densities()
 			{
 			    for(unsigned int k = 0; k < number_of_atoms; ++k)
 			    {
-				const Point<dim> Xi = this->atom_positions[k];
-				const double r = Xi.distance(quadrature_points[q_points]);;
-				const double r_squared = r * r;
+				const Point<dim> & Xi = this->atom_positions[k];
+				const double & r = Xi.distance(quadrature_points[q_points]);;
+				const double & r_squared = r * r;
 
 				density_values[q_points] +=  constant_value *
 							     exp(-r_squared * r_c_squared_inverse) *
@@ -549,9 +551,9 @@ void LaplaceProblem<dim>::compute_charge_densities()
 			{
 			    for(const auto & i : set_atom_indices)
 				{
-				    const Point<dim> Xi = this->atom_positions[i];
-				    const double r = Xi.distance(quadrature_points[q_points]);
-				    const double r_squared = r * r;
+				    const Point<dim> & Xi = this->atom_positions[i];
+				    const double & r = Xi.distance(quadrature_points[q_points]);
+				    const double & r_squared = r * r;
 
 				    density_values[q_points] +=  constant_value *
 								 exp(-r_squared * r_c_squared_inverse) *
@@ -559,17 +561,12 @@ void LaplaceProblem<dim>::compute_charge_densities()
 				}
 			}
 		}
+
+	    this->density_values_for_each_cell.insert(std::make_pair(cell, density_values));
+
 	    if(flag_rhs_assembly)
 		set_atom_indices.clear();
 	}
-    // Debug the density values vector
-    double sum = 0.0;
-//    pcout << "Density value's : " << std::endl;
-    for(unsigned int q = 0; q < n_q_points; ++q)
-	{
-	    sum += this->density_values[q];
-	}
-	pcout << "Density value's sum : " << sum << std::endl;
 }
 
 
@@ -599,6 +596,7 @@ void LaplaceProblem<dim>::compute_moments()
 	{
 	    fe_values.reinit (cell);
 	    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+	    const std::vector<double> & density_values = this->density_values_for_each_cell.at(cell);
 
 	    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
 		{
@@ -614,7 +612,7 @@ void LaplaceProblem<dim>::compute_moments()
 		    const SymmetricTensor<2, dim> I = unit_symmetric_tensor<dim>();
 
 		    const double x_norm = quadrature_points[q_points].norm();
-		    this->quadrupole_moment += this->density_values[q_points] * (3.0 * x_dyad_x - x_norm * x_norm * I);
+		    this->quadrupole_moment += density_values[q_points] * (3.0 * x_dyad_x - x_norm * x_norm * I);
 		}
 	}
 
@@ -657,7 +655,6 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     DoFTools::make_hanging_node_constraints (mg_dof_handler, constraints);
 
     std::set<types::boundary_id>         dirichlet_boundary;
-    dirichlet_boundary.insert(0);
     typename FunctionMap<dim>::type      dirichlet_boundary_functions;
 
     // Need the std::map of charge list for computing the densities
@@ -669,13 +666,24 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     if(lammpsinput != 0)
 	{
 	    compute_charge_densities();
-	    compute_moments();
+
+	    if(!flag_boundary_conditions)
+		compute_moments();
 	}
 
-//    ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
-    GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
-//    dirichlet_boundary_functions[0] = &homogeneous_dirichlet_bc;
-    dirichlet_boundary_functions[0] = &nonzeroDBC;
+    if(flag_boundary_conditions)
+	{
+	    static ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
+	    dirichlet_boundary_functions[0] = &homogeneous_dirichlet_bc;
+	}
+
+    if(!flag_boundary_conditions)
+	{
+	    static GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
+	    dirichlet_boundary_functions[0] = &nonzeroDBC;
+	}
+
+    dirichlet_boundary.insert(0);
 
     VectorTools::interpolate_boundary_values (mg_dof_handler,
 					      dirichlet_boundary_functions,
@@ -742,7 +750,7 @@ void LaplaceProblem<dim>::assemble_system ()
 
     std::vector<double>    coefficient_values (n_q_points);
 
-//    std::vector<double>    density_values (n_q_points);
+    std::vector<double>    density_values (n_q_points);
 //    double r = 0.0, r_squared = 0.0;
 //    const double r_c_squared_inverse = 1.0 / (r_c * r_c);
 //    const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
@@ -766,13 +774,11 @@ void LaplaceProblem<dim>::assemble_system ()
             // evaluate RHS function at quadrature points.
             if(lammpsinput == 0)
             {
-		std::vector<double> density_values_2 (fe_values.get_quadrature_points().size());
                 rhs_func->value_list (fe_values.get_quadrature_points(),
-				      density_values_2);
-
-		for(unsigned int i = 0; i < density_values_2.size(); ++i)
-		    this->density_values[i] = density_values_2[i];
+				      density_values);
             }
+	    else if(lammpsinput != 0)
+		density_values = this->density_values_for_each_cell.at(cell);
 	    /*else if(lammpsinput != 0)
             {
                 const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
@@ -855,7 +861,7 @@ void LaplaceProblem<dim>::assemble_system ()
                                              fe_values.JxW(q_point));
 
                     cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-				    this->density_values[q_point] *
+				    density_values[q_point] *
                                     fe_values.JxW(q_point));
 
                 }
@@ -890,8 +896,6 @@ void LaplaceProblem<dim>::assemble_multigrid ()
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
     std::vector<double>    coefficient_values (n_q_points);
-
-
 
     std::vector<ConstraintMatrix> boundary_constraints (triangulation.n_global_levels());
     ConstraintMatrix empty_constraints;
@@ -1446,9 +1450,6 @@ void LaplaceProblem<dim>::run ()
 
 	{
 	    TimerOutput::Scope t(computing_timer, "RHS assembly");
-
-//	    if((cycle == 0) && (flag_rhs_assembly))
-//		rhs_assembly_optimization();
 
 	    if(dim == 2)
 		grid_output_debug(cycle);

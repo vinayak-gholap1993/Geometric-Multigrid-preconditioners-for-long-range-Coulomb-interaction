@@ -114,7 +114,7 @@ public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
 		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
                     const double &, const double &,
-		    const bool &, const bool &, const bool &, const bool &);
+		    const bool &, const bool &, const bool &, const bool &, const bool &);
     ~LaplaceProblem();
     void run ();
 
@@ -176,7 +176,7 @@ protected:
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
     bool lammpsinput;
-    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support, flag_rhs_assembly;
+    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support, flag_rhs_assembly, flag_boundary_conditions;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
@@ -189,7 +189,7 @@ protected:
     unsigned int offset;
     Tensor<1, dim, double> dipole_moment;
     Tensor<2, dim, double> quadrupole_moment;
-    double * density_values;
+    std::map<cell_it, std::vector<double> > density_values_for_each_cell;
 
 };
 }
