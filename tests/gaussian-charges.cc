@@ -22,10 +22,10 @@ void check ()
 	<< "	set Vacuum repetitions = 10" << std::endl
         <<"end" <<std::endl
        <<"subsection Misc"<<std::endl
-	<< "    set Number of Adaptive Refinement = 8" << std::endl
+	<< "    set Number of Adaptive Refinement = 4" << std::endl
         << "    set smoothing length = 0.5" << std::endl
 	<< "    set Nonzero Density radius parameter around each charge = 3.5" << std::endl
-	<< "	set Output and calculation of Analytical solution = true" << std::endl
+	<< "	set Output and calculation of Analytical solution = false" << std::endl
 	<< "	set Output of RHS field = false" << std::endl
 	<< "	set Output of support of each atom = false" << std::endl
 	<< "	set Flag for RHS evaluation optimization = true" << std::endl
