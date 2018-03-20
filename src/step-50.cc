@@ -525,9 +525,9 @@ void LaplaceProblem<dim>::compute_charge_densities()
 	    if(flag_rhs_assembly)
 		set_atom_indices = this->charges_list_for_each_cell.at(cell);
 
-	    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+	    for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
 		{
-		    density_values[q_points] = 0.0;
+		    density_values[q_point] = 0.0;
 		    // Check: loop over all the atoms or the std::set of neigboring atoms
 		    // according to the localization
 
@@ -537,10 +537,10 @@ void LaplaceProblem<dim>::compute_charge_densities()
 			    for(unsigned int k = 0; k < number_of_atoms; ++k)
 			    {
 				const Point<dim> & Xi = this->atom_positions[k];
-				const double & r = Xi.distance(quadrature_points[q_points]);;
+				const double & r = Xi.distance(quadrature_points[q_point]);;
 				const double & r_squared = r * r;
 
-				density_values[q_points] +=  constant_value *
+				density_values[q_point] +=  constant_value *
 							     exp(-r_squared * r_c_squared_inverse) *
 							     this->charges[k];
 			    }
@@ -552,10 +552,10 @@ void LaplaceProblem<dim>::compute_charge_densities()
 			    for(const auto & i : set_atom_indices)
 				{
 				    const Point<dim> & Xi = this->atom_positions[i];
-				    const double & r = Xi.distance(quadrature_points[q_points]);
+				    const double & r = Xi.distance(quadrature_points[q_point]);
 				    const double & r_squared = r * r;
 
-				    density_values[q_points] +=  constant_value *
+				    density_values[q_point] +=  constant_value *
 								 exp(-r_squared * r_c_squared_inverse) *
 								 this->charges[i];
 				}
@@ -585,6 +585,8 @@ void LaplaceProblem<dim>::compute_moments()
     for(unsigned int k = 0; k < number_of_atoms; ++k)
 	dipole_moment += this->charges[k] * this->atom_positions[k];
 
+    const SymmetricTensor<2, dim> I = unit_symmetric_tensor<dim>();
+
     // Compute the quadrupole moment Qo
     // numerical integration by quadrature rule
     quadrupole_moment = Tensor<2, dim, double>();
@@ -598,24 +600,25 @@ void LaplaceProblem<dim>::compute_moments()
 	    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
 	    const std::vector<double> & density_values = this->density_values_for_each_cell.at(cell);
 
-	    for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+	    for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
 		{
 		    Tensor<2, dim, double> x_dyad_x = Tensor<2, dim, double>();
 		    for(unsigned int p = 0; p < dim; ++p)
-			for(unsigned int q = 0; q < dim; ++q)
-			    x_dyad_x[p][q] += quadrature_points[q_points](p) * quadrature_points[q_points](q);
+			for(unsigned int q = 0;q < dim; ++q)
+			    x_dyad_x[p][q] = quadrature_points[q_point](p) * quadrature_points[q_point](q);
 		    /*
-		    outer_product(x_dyad_x, static_cast<const Tensor< 1, dim, double> &> quadrature_points[q_points],
-				  static_cast<const Tensor< 1, dim, double> &> quadrature_points[q_points]);
+		    outer_product(x_dyad_x, static_cast<const Tensor< 1, dim, double> &> quadrature_points[q_point],
+				  static_cast<const Tensor< 1, dim, double> &> quadrature_points[q_point]);
 				  */
 
-		    const SymmetricTensor<2, dim> I = unit_symmetric_tensor<dim>();
-
-		    const double x_norm = quadrature_points[q_points].norm();
-		    this->quadrupole_moment += density_values[q_points] * (3.0 * x_dyad_x - x_norm * x_norm * I);
+		    const double x_norm = quadrature_points[q_point].norm();
+		    this->quadrupole_moment += density_values[q_point] * (3.0 * x_dyad_x - x_norm * x_norm * I) * fe_values.JxW(q_point);
 		}
 	}
 
+    this->quadrupole_moment = dealii::Utilities::MPI::sum(this->quadrupole_moment, MPI_COMM_WORLD);
+    this->quadrupole_moment = 0.0;
+/*
     // Debug the moments Tensors
     pcout << "Dipole : " << std::endl;
     for(unsigned int p = 0; p < dim; ++p)
@@ -633,7 +636,7 @@ void LaplaceProblem<dim>::compute_moments()
 	    }
 	pcout << std::endl;
 	}
-    pcout << std::endl;
+    pcout << std::endl;*/
 }
 
 template <int dim>
@@ -666,24 +669,14 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     if(lammpsinput != 0)
 	{
 	    compute_charge_densities();
-
-	    if(!flag_boundary_conditions)
-		compute_moments();
-	}
-
-    if(flag_boundary_conditions)
-	{
-	    static ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
-	    dirichlet_boundary_functions[0] = &homogeneous_dirichlet_bc;
-	}
-
-    if(!flag_boundary_conditions)
-	{
-	    static GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
-	    dirichlet_boundary_functions[0] = &nonzeroDBC;
+	    compute_moments();
 	}
 
     dirichlet_boundary.insert(0);
+    ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
+    GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
+    dirichlet_boundary_functions[0] = flag_boundary_conditions ? static_cast<const Function<dim>* >(&homogeneous_dirichlet_bc)
+							       : static_cast<const Function<dim>* >(&nonzeroDBC);
 
     VectorTools::interpolate_boundary_values (mg_dof_handler,
 					      dirichlet_boundary_functions,
