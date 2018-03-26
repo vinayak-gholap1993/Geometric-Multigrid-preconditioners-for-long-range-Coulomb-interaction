@@ -69,6 +69,9 @@ void ParameterReader::declare_parameters()
 	prm.declare_entry ("Quadrature points for RHS function", "1", Patterns::Integer (),
 			   "Number of quadrature points for RHS function (total points = degree + these points)");
 
+	prm.declare_entry ("Output time summary table", "true", Patterns::Bool (),
+			   "Set flag for whether to output the time summary");
+
     }
     prm.leave_subsection();
 
@@ -104,7 +107,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
                                      const unsigned int &number_of_adaptive_refinement_cycles,
 				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly,
 				     const bool & flag_analytical_solution, const bool & flag_rhs_field, const bool & flag_atoms_support,
-				     const bool & flag_boundary_conditions, const unsigned int & quadrature_degree_rhs)
+				     const bool & flag_boundary_conditions,  const bool & flag_output_time,
+				     const unsigned int & quadrature_degree_rhs)
     :    
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -132,6 +136,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     flag_atoms_support (flag_atoms_support),
     flag_rhs_assembly(flag_rhs_assembly),
     flag_boundary_conditions(flag_boundary_conditions),
+    flag_output_time (flag_output_time),
     r_c(r_c),
     nonzero_density_radius_parameter(nonzero_density_radius_parameter),
     quadrature_degree_rhs(quadrature_degree_rhs)
@@ -621,7 +626,7 @@ void LaplaceProblem<dim>::compute_moments()
 	}
 
     this->quadrupole_moment = dealii::Utilities::MPI::sum(this->quadrupole_moment, MPI_COMM_WORLD);
-//    this->quadrupole_moment = 0.0;
+    this->quadrupole_moment = 0.0;
 /*
     // Debug the moments Tensors
     pcout << "Dipole : " << std::endl;
@@ -1541,11 +1546,13 @@ void LaplaceProblem<dim>::run ()
 	timer.reset();
     }
 
-    computing_timer.print_summary();
+    if(flag_output_time)
+	computing_timer.print_summary();
     computing_timer.reset();
 
     timer_test.stop();
-    pcout << "   \nTotal Elapsed wall time for solution: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
+    if(flag_output_time)
+	pcout << "   \nTotal Elapsed wall time for solution: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
     timer_test.reset();
 
 

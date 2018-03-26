@@ -114,7 +114,7 @@ public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
 		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
                     const double &, const double &,
-		    const bool &, const bool &, const bool &, const bool &, const bool &, const unsigned int &);
+		    const bool &, const bool &, const bool &, const bool &, const bool &, const bool &, const unsigned int &);
     ~LaplaceProblem();
     void run ();
 
@@ -177,7 +177,8 @@ protected:
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
     bool lammpsinput;
-    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support, flag_rhs_assembly, flag_boundary_conditions;
+    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support,
+		flag_rhs_assembly, flag_boundary_conditions, flag_output_time;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
