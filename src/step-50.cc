@@ -757,13 +757,10 @@ void LaplaceProblem<dim>::assemble_global_matrix ()
     const unsigned int   n_q_points    = quadrature_formula.size();
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
-//    Vector<double>       cell_rhs (dofs_per_cell);
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
     std::vector<double>    coefficient_values (n_q_points);
-
-//    std::vector<double>    density_values (n_q_points);
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -772,93 +769,11 @@ void LaplaceProblem<dim>::assemble_global_matrix ()
         if (cell->is_locally_owned())
         {
             cell_matrix = 0;
-//            cell_rhs = 0;
 
             fe_values.reinit (cell);
 
             coeff_func->value_list (fe_values.get_quadrature_points(),
                                     coefficient_values);
-
-/*
-            // evaluate RHS function at quadrature points.
-            if(lammpsinput == 0)
-            {
-                rhs_func->value_list (fe_values.get_quadrature_points(),
-				      density_values);
-            }
-	    else if(lammpsinput != 0)
-		density_values = this->density_values_for_each_cell.at(cell); */
-	    /*else if(lammpsinput != 0)
-            {
-                const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
-		if(flag_rhs_assembly)
-		    set_atom_indices = this->charges_list_for_each_cell.at(cell);
-//                    pcout<<"Printing the cell->atom_indices: "<<std::endl;
-//                    for(const auto & b : set_atom_indices)
-//                        {
-//                            pcout<< b << ", ";
-//                        }
-//                    std::cout<<std::endl;
-                for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
-                {
-                    density_values[q_points] = 0.0;
-
-                    // FIXME: figure out which cells have non-zero contribution from density for which atoms
-                    // maybe keep std::set<unsigned int> attached to a cell and in loop below only
-                    // go over atoms which have non-zero contribution.
-                    // for starters, do this association during setup_system(), i.e.
-                    // after each adaptive refinement.
-                    // TODO: add 1 unit test with 8 atoms and several refinement steps
-                    // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
-                    // make sure the solution agrees with analytical solution
-
-                    //If flag = false iterate over all the atoms in the domain, i.e. do not optimize the assembly
-                    if(!flag_rhs_assembly)
-
-                    {
-			for(unsigned int k = 0; k < number_of_atoms; ++k)
-                        {
-                            r = 0.0;
-                            r_squared = 0.0;
-
-                            const Point<dim> Xi = atom_positions[k];
-                            r = Xi.distance(quadrature_points[q_points]);
-                            r_squared = r * r;
-
-                            density_values[q_points] +=  constant_value *
-                                                         exp(-r_squared * r_c_squared_inverse) *
-                                                         this->charges[k];
-                        }
-
-                    }
-
-
-                    //If flag = true iterate only over the neighouring atoms and apply rhs optimization
-                    if(flag_rhs_assembly)
-
-                    {
-                        //To be checked
-                        for(const auto & a : set_atom_indices)
-                        {
-                            //std::cout<< *iter << " ";
-                            r = 0.0;
-                            r_squared = 0.0;
-
-                            const Point<dim> Xi = atom_positions[a];
-                            r = Xi.distance(quadrature_points[q_points]);
-                            r_squared = r * r;
-
-                            density_values[q_points] +=  constant_value *
-                                                         exp(-r_squared * r_c_squared_inverse) *
-                                                         this->charges[a];
-                        }
-                    }
-
-
-                }
-		if(flag_rhs_assembly)
-		    set_atom_indices.clear();
-	    }*/
 
             for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
                 for (unsigned int i=0; i<dofs_per_cell; ++i)
@@ -868,21 +783,15 @@ void LaplaceProblem<dim>::assemble_global_matrix ()
                                              fe_values.shape_grad(i,q_point) *
                                              fe_values.shape_grad(j,q_point) *
                                              fe_values.JxW(q_point));
-
-	   /*         cell_rhs(i) += (fe_values.shape_value(i,q_point) *
-				    density_values[q_point] *
-				    fe_values.JxW(q_point)); */
-
                 }
 
             cell->get_dof_indices (local_dof_indices);
-	    constraints.distribute_local_to_global (cell_matrix,/* cell_rhs,*/
+	    constraints.distribute_local_to_global (cell_matrix,
                                                     local_dof_indices,
-						    system_matrix/*, system_rhs*/);
+						    system_matrix);
         }
 
     system_matrix.compress(VectorOperation::add);
-//    system_rhs.compress(VectorOperation::add);
 }
 
 
@@ -1522,8 +1431,6 @@ void LaplaceProblem<dim>::run ()
         pcout << std::endl;
 
 	{
-//	    TimerOutput::Scope t(computing_timer, "RHS assembly");
-
 	    if(dim == 2)
 		grid_output_debug(cycle);
 
