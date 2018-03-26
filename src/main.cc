@@ -38,8 +38,6 @@ int main (int argc, char *argv[])
 	bool flag_rhs_field = prm.get_bool ("Output of RHS field");
 	bool flag_atoms_support = prm.get_bool ("Output of support of each atom");
 	bool flag_rhs_assembly = prm.get_bool ("Flag for RHS evaluation optimization");
-	const unsigned int quadrature_degree_rhs = prm.get_integer ("Quadrature points for RHS function");
-	const bool &  flag_output_time = prm.get_bool ("Output time summary table");
         prm.leave_subsection ();
 
         const unsigned int Degree = prm.get_integer("Polynomial degree");
@@ -72,7 +70,7 @@ int main (int argc, char *argv[])
             LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
 					      mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
 					      r_c, nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution, flag_rhs_field,
-					      flag_atoms_support, flag_boundary_conditions, flag_output_time, quadrature_degree_rhs);
+					      flag_atoms_support, flag_boundary_conditions);
             laplace_problem.run ();
         }
         else if (d == 3)
@@ -80,7 +78,7 @@ int main (int argc, char *argv[])
             LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
 					      mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
 					      r_c, nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution, flag_rhs_field,
-					      flag_atoms_support, flag_boundary_conditions, flag_output_time, quadrature_degree_rhs);
+					      flag_atoms_support, flag_boundary_conditions);
             laplace_problem.run ();
         }
         else if (d != 2 && d != 3)

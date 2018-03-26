@@ -114,14 +114,13 @@ public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
 		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
                     const double &, const double &,
-		    const bool &, const bool &, const bool &, const bool &, const bool &, const bool &, const unsigned int &);
+		    const bool &, const bool &, const bool &, const bool &, const bool &);
     ~LaplaceProblem();
     void run ();
 
 protected:
     void setup_system (const unsigned int &);
-    void assemble_global_matrix ();
-    void assemble_global_rhs_vector();
+    void assemble_system ();
     void assemble_multigrid ();
     void solve ();
     void refine_grid (const unsigned int &);
@@ -177,8 +176,7 @@ protected:
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
     bool lammpsinput;
-    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support,
-		flag_rhs_assembly, flag_boundary_conditions, flag_output_time;
+    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support, flag_rhs_assembly, flag_boundary_conditions;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
     unsigned int * atom_types;
@@ -192,7 +190,6 @@ protected:
     Tensor<1, dim, double> dipole_moment;
     Tensor<2, dim, double> quadrupole_moment;
     std::map<cell_it, std::vector<double> > density_values_for_each_cell;
-    const unsigned int quadrature_degree_rhs;
 
 };
 }
@@ -313,21 +310,6 @@ public:
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
-// Exact boundary conditions applied to the domain
-// just to check if all the other implementation is correct
-template <int dim>
-class ExactDBC : public Function<dim>
-{
-public:
-    const double r_c;
-    const Point<dim> atom_position;
-    const double charge;
-
-    ExactDBC(const double &_r_c, const Point<dim> &_pos, const double &_charge)
-	: Function<dim>(),r_c(_r_c),atom_position(_pos),charge(_charge) {}
-    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
-
 template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
 {
@@ -373,13 +355,6 @@ double NonZeroDBC<dim>::value(const Point<dim> &p, const unsigned int) const
     const double x_diff_norm = x_diff.norm();
     const auto x_Q_x = contract3(x_diff, Q0, x_diff);
     return (p0 * x_diff) / (std::pow(x_diff_norm,3)) + (0.5 * x_Q_x) / (std::pow(x_diff_norm,5));
-}
-
-template <int dim>
-double ExactDBC<dim>::value(const Point<dim> &p, const unsigned int) const
-{
-    const double radial_distance = atom_position.distance(p);
-    return charge * (erf(radial_distance / r_c)/ radial_distance);
 }
 }
 

@@ -66,12 +66,6 @@ void ParameterReader::declare_parameters()
 	prm.declare_entry ("Flag for RHS evaluation optimization", "false", Patterns::Bool(),
 			   "Set flag for whether to evaluate the RHS field with local optimization");
 
-	prm.declare_entry ("Quadrature points for RHS function", "1", Patterns::Integer (),
-			   "Number of quadrature points for RHS function (total points = degree + these points)");
-
-	prm.declare_entry ("Output time summary table", "true", Patterns::Bool (),
-			   "Set flag for whether to output the time summary");
-
     }
     prm.leave_subsection();
 
@@ -107,8 +101,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
                                      const unsigned int &number_of_adaptive_refinement_cycles,
 				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly,
 				     const bool & flag_analytical_solution, const bool & flag_rhs_field, const bool & flag_atoms_support,
-				     const bool & flag_boundary_conditions,  const bool & flag_output_time,
-				     const unsigned int & quadrature_degree_rhs)
+				     const bool & flag_boundary_conditions)
     :    
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -136,10 +129,8 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     flag_atoms_support (flag_atoms_support),
     flag_rhs_assembly(flag_rhs_assembly),
     flag_boundary_conditions(flag_boundary_conditions),
-    flag_output_time (flag_output_time),
     r_c(r_c),
-    nonzero_density_radius_parameter(nonzero_density_radius_parameter),
-    quadrature_degree_rhs(quadrature_degree_rhs)
+    nonzero_density_radius_parameter(nonzero_density_radius_parameter)
 
 {
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
@@ -507,7 +498,7 @@ const double LaplaceProblem<dim>::short_ranged_potential(const Point<dim> & poin
 template <int dim>
 void LaplaceProblem<dim>::compute_charge_densities()
 {
-    const QGauss<dim>  quadrature_formula(degree + quadrature_degree_rhs);
+    const QGauss<dim>  quadrature_formula(degree+1);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
 			     update_values    |  update_gradients |
@@ -582,7 +573,7 @@ void LaplaceProblem<dim>::compute_charge_densities()
 template <int dim>
 void LaplaceProblem<dim>::compute_moments()
 {
-    const QGauss<dim>  quadrature_formula(degree + quadrature_degree_rhs);
+    const QGauss<dim>  quadrature_formula(degree+1);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
 			     update_values    |  update_gradients |
@@ -684,17 +675,6 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     dirichlet_boundary.insert(0);
     ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
     GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
-
- /*   for(unsigned int i = 0; i < number_of_atoms; i++)
-	{
-	    VectorTools::interpolate_boundary_values (mg_dof_handler,
-						      0,
-						      GaussianCharges::ExactDBC<dim>(this->r_c,this->atom_positions[i],
-										     this->charges[i]),
-						      constraints);
-
-	}
-*/
     dirichlet_boundary_functions[0] = flag_boundary_conditions ? static_cast<const Function<dim>* >(&homogeneous_dirichlet_bc)
 							       : static_cast<const Function<dim>* >(&nonzeroDBC);
 
@@ -743,9 +723,9 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
 
 
 template <int dim>
-void LaplaceProblem<dim>::assemble_global_matrix ()
+void LaplaceProblem<dim>::assemble_system ()
 {
-    TimerOutput::Scope t(computing_timer, "Assemble global matrix");
+    TimerOutput::Scope t(computing_timer, "Assemble system");
     const QGauss<dim>  quadrature_formula(degree+1);
 
     FEValues<dim> fe_values (fe, quadrature_formula,
@@ -757,10 +737,17 @@ void LaplaceProblem<dim>::assemble_global_matrix ()
     const unsigned int   n_q_points    = quadrature_formula.size();
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
+    Vector<double>       cell_rhs (dofs_per_cell);
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
     std::vector<double>    coefficient_values (n_q_points);
+
+    std::vector<double>    density_values (n_q_points);
+//    double r = 0.0, r_squared = 0.0;
+//    const double r_c_squared_inverse = 1.0 / (r_c * r_c);
+//    const double constant_value = 4.0 * (numbers::PI)  / (std::pow(r_c, 3) * std::pow(numbers::PI, 1.5));
+//    std::set<unsigned int> set_atom_indices;
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -769,11 +756,93 @@ void LaplaceProblem<dim>::assemble_global_matrix ()
         if (cell->is_locally_owned())
         {
             cell_matrix = 0;
+            cell_rhs = 0;
 
             fe_values.reinit (cell);
 
             coeff_func->value_list (fe_values.get_quadrature_points(),
                                     coefficient_values);
+
+
+            // evaluate RHS function at quadrature points.
+            if(lammpsinput == 0)
+            {
+                rhs_func->value_list (fe_values.get_quadrature_points(),
+				      density_values);
+            }
+	    else if(lammpsinput != 0)
+		density_values = this->density_values_for_each_cell.at(cell);
+	    /*else if(lammpsinput != 0)
+            {
+                const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+		if(flag_rhs_assembly)
+		    set_atom_indices = this->charges_list_for_each_cell.at(cell);
+//                    pcout<<"Printing the cell->atom_indices: "<<std::endl;
+//                    for(const auto & b : set_atom_indices)
+//                        {
+//                            pcout<< b << ", ";
+//                        }
+//                    std::cout<<std::endl;
+                for(unsigned int q_points = 0; q_points < n_q_points; ++q_points)
+                {
+                    density_values[q_points] = 0.0;
+
+                    // FIXME: figure out which cells have non-zero contribution from density for which atoms
+                    // maybe keep std::set<unsigned int> attached to a cell and in loop below only
+                    // go over atoms which have non-zero contribution.
+                    // for starters, do this association during setup_system(), i.e.
+                    // after each adaptive refinement.
+                    // TODO: add 1 unit test with 8 atoms and several refinement steps
+                    // TODO: add 1 unit test with 2 atom of oposite charge NOT at the same pont,
+                    // make sure the solution agrees with analytical solution
+
+                    //If flag = false iterate over all the atoms in the domain, i.e. do not optimize the assembly
+                    if(!flag_rhs_assembly)
+
+                    {
+			for(unsigned int k = 0; k < number_of_atoms; ++k)
+                        {
+                            r = 0.0;
+                            r_squared = 0.0;
+
+                            const Point<dim> Xi = atom_positions[k];
+                            r = Xi.distance(quadrature_points[q_points]);
+                            r_squared = r * r;
+
+                            density_values[q_points] +=  constant_value *
+                                                         exp(-r_squared * r_c_squared_inverse) *
+                                                         this->charges[k];
+                        }
+
+                    }
+
+
+                    //If flag = true iterate only over the neighouring atoms and apply rhs optimization
+                    if(flag_rhs_assembly)
+
+                    {
+                        //To be checked
+                        for(const auto & a : set_atom_indices)
+                        {
+                            //std::cout<< *iter << " ";
+                            r = 0.0;
+                            r_squared = 0.0;
+
+                            const Point<dim> Xi = atom_positions[a];
+                            r = Xi.distance(quadrature_points[q_points]);
+                            r_squared = r * r;
+
+                            density_values[q_points] +=  constant_value *
+                                                         exp(-r_squared * r_c_squared_inverse) *
+                                                         this->charges[a];
+                        }
+                    }
+
+
+                }
+		if(flag_rhs_assembly)
+		    set_atom_indices.clear();
+	    }*/
 
             for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
                 for (unsigned int i=0; i<dofs_per_cell; ++i)
@@ -783,70 +852,20 @@ void LaplaceProblem<dim>::assemble_global_matrix ()
                                              fe_values.shape_grad(i,q_point) *
                                              fe_values.shape_grad(j,q_point) *
                                              fe_values.JxW(q_point));
+
+                    cell_rhs(i) += (fe_values.shape_value(i,q_point) *
+				    density_values[q_point] *
+                                    fe_values.JxW(q_point));
+
                 }
 
             cell->get_dof_indices (local_dof_indices);
-	    constraints.distribute_local_to_global (cell_matrix,
+            constraints.distribute_local_to_global (cell_matrix, cell_rhs,
                                                     local_dof_indices,
-						    system_matrix);
+                                                    system_matrix, system_rhs);
         }
 
     system_matrix.compress(VectorOperation::add);
-}
-
-
-template <int dim>
-void LaplaceProblem<dim>::assemble_global_rhs_vector ()
-{
-    TimerOutput::Scope t(computing_timer, "Assemble global rhs");
-    const QGauss<dim>  quadrature_formula(degree + quadrature_degree_rhs);
-
-    FEValues<dim> fe_values (fe, quadrature_formula,
-			     update_values    |  update_gradients |
-			     update_quadrature_points  |  update_JxW_values);
-
-
-    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-    const unsigned int   n_q_points    = quadrature_formula.size();
-
-    Vector<double>       cell_rhs (dofs_per_cell);
-
-    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-
-    std::vector<double>    density_values (n_q_points);
-
-    typename DoFHandler<dim>::active_cell_iterator
-    cell = mg_dof_handler.begin_active(),
-    endc = mg_dof_handler.end();
-    for (; cell!=endc; ++cell)
-	if (cell->is_locally_owned())
-	{
-	    cell_rhs = 0;
-
-	    fe_values.reinit (cell);
-
-	    // evaluate RHS function at quadrature points.
-	    if(lammpsinput == 0)
-	    {
-		rhs_func->value_list (fe_values.get_quadrature_points(),
-				      density_values);
-	    }
-	    else if(lammpsinput != 0)
-		density_values = this->density_values_for_each_cell.at(cell);
-
-
-	    for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-		for (unsigned int i=0; i<dofs_per_cell; ++i)
-		    cell_rhs(i) += (fe_values.shape_value(i,q_point)
-				    * density_values[q_point]
-				    * fe_values.JxW(q_point));
-
-	    cell->get_dof_indices (local_dof_indices);
-	    constraints.distribute_local_to_global (cell_rhs,
-						    local_dof_indices,
-						    system_rhs);
-	}
-
     system_rhs.compress(VectorOperation::add);
 }
 
@@ -1379,43 +1398,35 @@ void LaplaceProblem<dim>::run ()
         pcout << "Cycle " << cycle << ':' << std::endl;
 
         if (cycle == 0)
-	{
-	    if(Problemtype == "Step16")
-	    {
-		// For Step16 Test edit the domain size in step-16.cc to unit lattice
-		// and add some global refinements too
-		GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right); // 1 cell i.e. 2^(0*dim)
-		triangulation.refine_global (number_of_global_refinement);  // formula: 2^(num * dim)
-	    }
+        {
+//	    GridGenerator::hyper_cube (triangulation,domain_size_left,domain_size_right); // 1 cell i.e. 2^(0*dim)
+//	    triangulation.refine_global (number_of_global_refinement);  // formula: 2^(num * dim)
 
-	    if(Problemtype == "GaussianCharges")
-	    {
-		// Here domain_left and right need to be according to the LAMMPS atom file xlo and xhi
-		// Need to set #Global_ref = 0
-		const double a = 2 * mesh_size_h;
-		const double N = (domain_size_right - domain_size_left) / a;	// N = | left - right |/ 2h
-		const double M = repetitions_for_vacuum; // Setting the vaccum around the lattice in terms of a
-		const double repetitions_in_each_direction = 2 * (N + 2 * M);   // in terms of 'h' grid size, h = a/2
-		std::vector< unsigned int > repetitions;
+	    // Here domain_left and right need to be according to the LAMMPS atom file xlo and xhi
+	    // Need to set #Global_ref = 0
+	    const double a = 2 * mesh_size_h;
+	    const double N = (domain_size_right - domain_size_left) / a;	// N = | left - right |/ 2h
+	    const double M = repetitions_for_vacuum; // Setting the vaccum around the lattice in terms of a
+	    const double repetitions_in_each_direction = 2 * (N + 2 * M);   // in terms of 'h' grid size, h = a/2
+	    std::vector< unsigned int > repetitions;
+	    repetitions.push_back (repetitions_in_each_direction);
+	    if(dim >= 2)
 		repetitions.push_back (repetitions_in_each_direction);
-		if(dim >= 2)
-		    repetitions.push_back (repetitions_in_each_direction);
-		if(dim >= 3)
-		    repetitions.push_back (repetitions_in_each_direction);
+	    if(dim >= 3)
+		repetitions.push_back (repetitions_in_each_direction);
 
-		const Point<dim> lower_left = (dim == 2
-					       ?
-					       Point<dim> (domain_size_left - (M *a), domain_size_left - (M *a))
-					       :
-					       Point<dim> (domain_size_left - (M *a), domain_size_left - (M *a), domain_size_left - (M *a)));
-		const Point<dim> upper_right = (dim == 2
-						?
-						Point<dim> (domain_size_right + (M *a), domain_size_right + (M *a))
-						:
-						Point<dim> (domain_size_right + (M *a), domain_size_right + (M *a), domain_size_right + (M *a)));
+	    const Point<dim> lower_left = (dim == 2
+					   ?
+					   Point<dim> (domain_size_left - (M *a), domain_size_left - (M *a))
+					   :
+					   Point<dim> (domain_size_left - (M *a), domain_size_left - (M *a), domain_size_left - (M *a)));
+	    const Point<dim> upper_right = (dim == 2
+					    ?
+					    Point<dim> (domain_size_right + (M *a), domain_size_right + (M *a))
+					    :
+					    Point<dim> (domain_size_right + (M *a), domain_size_right + (M *a), domain_size_right + (M *a)));
 
-		GridGenerator::subdivided_hyper_rectangle (triangulation, repetitions, lower_left, upper_right, false);
-	    }
+	    GridGenerator::subdivided_hyper_rectangle (triangulation, repetitions, lower_left, upper_right, false);
         }
 	else
 	    refine_grid (cycle);
@@ -1431,11 +1442,12 @@ void LaplaceProblem<dim>::run ()
         pcout << std::endl;
 
 	{
+	    TimerOutput::Scope t(computing_timer, "RHS assembly");
+
 	    if(dim == 2)
 		grid_output_debug(cycle);
 
-	    assemble_global_matrix ();
-	    assemble_global_rhs_vector ();
+	    assemble_system ();
 	}
 
 	if(PreconditionerType == "GMG")
@@ -1453,13 +1465,11 @@ void LaplaceProblem<dim>::run ()
 	timer.reset();
     }
 
-    if(flag_output_time)
-	computing_timer.print_summary();
+    computing_timer.print_summary();
     computing_timer.reset();
 
     timer_test.stop();
-    if(flag_output_time)
-	pcout << "   \nTotal Elapsed wall time for solution: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
+    pcout << "   \nTotal Elapsed wall time for solution: " << timer_test.wall_time() << " seconds.\n"<<std::endl;
     timer_test.reset();
 
 
