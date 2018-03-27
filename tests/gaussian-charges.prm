@@ -41,6 +41,9 @@ subsection Misc
 
 	#Set flag for whether to evaluate the RHS field with local optimization
 	set Flag for RHS evaluation optimization = true
+
+	#Set flag for whether to output the time summary
+	set Output time summary table = false
 end
 
 # Polynomial degree of finite elements
@@ -58,7 +61,7 @@ subsection Problem Selection
 	set Dimension = 3
 
 	#Set flag for homogeneous or inhomogeneous dirichlet boundary condtions
-	set Homogeneous Boundary Conditions = true
+	set Homogeneous Boundary Conditions = false
 end	
 
 subsection Lammps data
