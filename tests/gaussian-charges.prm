@@ -41,6 +41,12 @@ subsection Misc
 
 	#Set flag for whether to evaluate the RHS field with local optimization
 	set Flag for RHS evaluation optimization = true
+
+	#Number of quadrature points for RHS function (total points = degree + these points)
+	set Quadrature points for RHS function = 1
+
+	#Set flag for whether to output the time summary
+	set Output time summary table = false
 end
 
 # Polynomial degree of finite elements

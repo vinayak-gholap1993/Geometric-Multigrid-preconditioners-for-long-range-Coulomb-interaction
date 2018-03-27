@@ -7,89 +7,68 @@ Number of atoms: 2
 Cycle 0:
    Number of active cells:       85184
    Number of degrees of freedom: 91125 (by level: 91125)
-   Starting value 0.922766
+   Starting value 0.906576
    CG converged in 1 iterations.
-   Convergence value 8.919755e-11
-   L1 solution norm 1.2037321839e+03
-   L2 solution norm 9.6556037257e+00
-   LInfinity solution norm 8.2335657791e-01
+   Convergence value 7.272036e-11
+   L1 solution norm 8.4311921803e+02
+   L2 solution norm 9.1885388460e+00
+   LInfinity solution norm 8.2280709292e-01
 
 Total analytical electrostatic energy :   -2.0000000000e+00
 Short-ranged energy contribution :  -3.1459841410e-01
-FE solution long-ranged energy contribution :    5.9770420446e-01
+FE solution long-ranged energy contribution :    5.9717983569e-01
 Self energy contribution : 2.2567583342e+00
-Total electrostatic energy with split in short- and long-ranged : -1.9736525438e+00
-Absolute Error between both energies :	2.6347456164e-02
+Total electrostatic energy with split in short- and long-ranged : -1.9741769126e+00
+Absolute Error between both energies :	2.5823087402e-02
 
 Cycle 1:
    Number of active cells:       85464
    Number of degrees of freedom: 91579 (by level: 91125, 565)
-   Starting value 0.1723178806
+   Starting value 0.1723182394
    CG converged in 6 iterations.
-   Convergence value 7.7502802431e-10
-   L1 solution norm 1.2834227251e+03
-   L2 solution norm 1.1963063943e+01
-   LInfinity solution norm 7.9302135553e-01
+   Convergence value 7.7504332991e-10
+   L1 solution norm 9.2270816079e+02
+   L2 solution norm 1.1583505379e+01
+   LInfinity solution norm 7.9247196425e-01
 
 Total analytical electrostatic energy :   -2.0000000000e+00
 Short-ranged energy contribution :  -3.1459841410e-01
-FE solution long-ranged energy contribution :    5.7122370407e-01
+FE solution long-ranged energy contribution :    5.7069932887e-01
 Self energy contribution : 2.2567583342e+00
-Total electrostatic energy with split in short- and long-ranged : -2.0001330442e+00
-Absolute Error between both energies :	1.3304422533e-04
+Total electrostatic energy with split in short- and long-ranged : -2.0006574194e+00
+Absolute Error between both energies :	6.5741941938e-04
 
 Cycle 2:
    Number of active cells:       86248
    Number of degrees of freedom: 92573 (by level: 91125, 1745)
-   Starting value 0.1570894643
+   Starting value 0.1570904651
    CG converged in 7 iterations.
-   Convergence value 1.5291284234e-09
-   L1 solution norm 1.5242189011e+03
-   L2 solution norm 1.6060818038e+01
-   LInfinity solution norm 7.9748420730e-01
+   Convergence value 1.5291286711e-09
+   L1 solution norm 1.1630169814e+03
+   L2 solution norm 1.5764858480e+01
+   LInfinity solution norm 7.9693479737e-01
 
 Total analytical electrostatic energy :   -2.0000000000e+00
 Short-ranged energy contribution :  -3.1459841410e-01
-FE solution long-ranged energy contribution :    5.7539486979e-01
+FE solution long-ranged energy contribution :    5.7487051915e-01
 Self energy contribution : 2.2567583342e+00
-Total electrostatic energy with split in short- and long-ranged : -1.9959618785e+00
-Absolute Error between both energies :	4.0381215025e-03
+Total electrostatic energy with split in short- and long-ranged : -1.9964862291e+00
+Absolute Error between both energies :	3.5137708620e-03
 
 Cycle 3:
    Number of active cells:       88656
    Number of degrees of freedom: 95669 (by level: 91125, 3713, 1730)
-   Starting value 0.1160472329
+   Starting value 0.1160473825
    CG converged in 7 iterations.
-   Convergence value 1.1162682558e-09
-   L1 solution norm 2.2783366475e+03
-   L2 solution norm 2.5474936179e+01
-   LInfinity solution norm 7.9193283007e-01
+   Convergence value 1.1162875582e-09
+   L1 solution norm 1.9152435879e+03
+   L2 solution norm 2.5256933102e+01
+   LInfinity solution norm 7.9138344820e-01
 
 Total analytical electrostatic energy :   -2.0000000000e+00
 Short-ranged energy contribution :  -3.1459841410e-01
-FE solution long-ranged energy contribution :    5.7015625838e-01
+FE solution long-ranged energy contribution :    5.6963189795e-01
 Self energy contribution : 2.2567583342e+00
-Total electrostatic energy with split in short- and long-ranged : -2.0012004899e+00
-Absolute Error between both energies :	1.2004899066e-03
-
-
-
-+---------------------------------------------+------------+------------+
-| Total wallclock time elapsed since start    | 4.527e+02s |            |
-|                                             |            |            |
-| Section                         | no. calls |  wall time | % of total |
-+---------------------------------+-----------+------------+------------+
-| Assemble Multigrid              |         4 | 1.716e+01s |  3.79e+00% |
-| Assemble system                 |         4 | 1.525e+01s |  3.37e+00% |
-| Postprocess electrostatic energy|         4 | 9.784e+00s |  2.16e+00% |
-| RHS assembly                    |         4 | 1.525e+01s |  3.37e+00% |
-| RHS assembly optimization       |         1 | 1.783e-01s | 0.000e+00% |
-| Read LAMMPS input file          |         1 | 6.712e-02s | 0.000e+00% |
-| Refine, solution transfer and se|         3 | 1.789e+02s |  3.95e+01% |
-| Setup system                    |         4 | 6.463e+01s |  1.43e+01% |
-| Solve                           |         4 | 1.713e+01s |  3.78e+00% |
-+---------------------------------+-----------+------------+------------+
-
-   
-Total Elapsed wall time for solution: 4.5282930628e+02 seconds.
+Total electrostatic energy with split in short- and long-ranged : -2.0017248503e+00
+Absolute Error between both energies :	1.7248503366e-03
 

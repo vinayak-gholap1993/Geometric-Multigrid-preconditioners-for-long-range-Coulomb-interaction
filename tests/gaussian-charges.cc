@@ -29,6 +29,8 @@ void check ()
 	<< "	set Output of RHS field = false" << std::endl
 	<< "	set Output of support of each atom = false" << std::endl
 	<< "	set Flag for RHS evaluation optimization = true" << std::endl
+	<< "	set Quadrature points for RHS function = 1" << std::endl
+	<< "	set Output time summary table = false" << std::endl
         <<"end"<<std::endl
         << "    set Polynomial degree = 1" << std::endl
         <<"subsection Solver input data"<<std::endl
@@ -61,6 +63,8 @@ void check ()
   bool flag_rhs_field = prm.get_bool ("Output of RHS field");
   bool flag_atoms_support = prm.get_bool ("Output of support of each atom");
   bool flag_rhs_assembly = prm.get_bool ("Flag for RHS evaluation optimization");
+  const unsigned int quadrature_degree_rhs = prm.get_integer ("Quadrature points for RHS function");
+  const bool &  flag_output_time = prm.get_bool ("Output time summary table");
   prm.leave_subsection ();
 
   const unsigned int Degree = prm.get_integer("Polynomial degree");
@@ -84,7 +88,7 @@ void check ()
 	      Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
 						mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
 						r_c, nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution, flag_rhs_field,
-						flag_atoms_support, flag_boundary_conditions);
+						flag_atoms_support, flag_boundary_conditions, flag_output_time, quadrature_degree_rhs);
 	      laplace_problem.run ();
 	  }
 	  else if (d == 3)
@@ -92,7 +96,7 @@ void check ()
 	      Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
 						mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
 						r_c, nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution, flag_rhs_field,
-						flag_atoms_support, flag_boundary_conditions);
+						flag_atoms_support, flag_boundary_conditions, flag_output_time, quadrature_degree_rhs);
 	      laplace_problem.run ();
 	  }
           else if (d != 2 && d != 3)
