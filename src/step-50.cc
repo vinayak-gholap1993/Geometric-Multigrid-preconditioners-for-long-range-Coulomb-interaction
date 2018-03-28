@@ -741,79 +741,35 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
 }
 
 
-
 template <int dim>
-void LaplaceProblem<dim>::assemble_global_matrix ()
+void LaplaceProblem<dim>::assemble_system ()
 {
-    TimerOutput::Scope t(computing_timer, "Assemble global matrix");
-    const QGauss<dim>  quadrature_formula(degree+1);
+    TimerOutput::Scope t(computing_timer, "Assemble system");
 
-    FEValues<dim> fe_values (fe, quadrature_formula,
-                             update_values    |  update_gradients |
-                             update_quadrature_points  |  update_JxW_values);
+    // Use of different number of quadrature points for laplace and rhs integration
+    const QGauss<dim>  quadrature_formula_laplace(degree+1);
+    const QGauss<dim>  quadrature_formula_rhs(degree+quadrature_degree_rhs);
 
-
-    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-    const unsigned int   n_q_points    = quadrature_formula.size();
-
-    FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
-
-    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-
-    std::vector<double>    coefficient_values (n_q_points);
-
-    typename DoFHandler<dim>::active_cell_iterator
-    cell = mg_dof_handler.begin_active(),
-    endc = mg_dof_handler.end();
-    for (; cell!=endc; ++cell)
-        if (cell->is_locally_owned())
-        {
-            cell_matrix = 0;
-
-            fe_values.reinit (cell);
-
-            coeff_func->value_list (fe_values.get_quadrature_points(),
-                                    coefficient_values);
-
-            for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-                for (unsigned int i=0; i<dofs_per_cell; ++i)
-                {
-                    for (unsigned int j=0; j<dofs_per_cell; ++j)
-                        cell_matrix(i,j) += (coefficient_values[q_point] *
-                                             fe_values.shape_grad(i,q_point) *
-                                             fe_values.shape_grad(j,q_point) *
-                                             fe_values.JxW(q_point));
-                }
-
-            cell->get_dof_indices (local_dof_indices);
-	    constraints.distribute_local_to_global (cell_matrix,
-                                                    local_dof_indices,
-						    system_matrix);
-        }
-
-    system_matrix.compress(VectorOperation::add);
-}
-
-
-template <int dim>
-void LaplaceProblem<dim>::assemble_global_rhs_vector ()
-{
-    TimerOutput::Scope t(computing_timer, "Assemble global rhs");
-    const QGauss<dim>  quadrature_formula(degree + quadrature_degree_rhs);
-
-    FEValues<dim> fe_values (fe, quadrature_formula,
+    FEValues<dim> fe_values_laplace (fe, quadrature_formula_laplace,
+			     update_values    |  update_gradients |
+			     update_quadrature_points  |  update_JxW_values);
+    FEValues<dim> fe_values_rhs (fe, quadrature_formula_rhs,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
 
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-    const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int   n_q_points_laplace    = quadrature_formula_laplace.size();
+    const unsigned int   n_q_points_rhs    = quadrature_formula_rhs.size();
 
+    FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       cell_rhs (dofs_per_cell);
 
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
-    std::vector<double>    density_values (n_q_points);
+    std::vector<double>    coefficient_values (n_q_points_laplace);
+
+    std::vector<double>    density_values (n_q_points_rhs);
 
     typename DoFHandler<dim>::active_cell_iterator
     cell = mg_dof_handler.begin_active(),
@@ -821,36 +777,69 @@ void LaplaceProblem<dim>::assemble_global_rhs_vector ()
     for (; cell!=endc; ++cell)
 	if (cell->is_locally_owned())
 	{
+	    cell_matrix = 0;
 	    cell_rhs = 0;
 
-	    fe_values.reinit (cell);
+	    fe_values_laplace.reinit (cell);
+	    fe_values_rhs.reinit (cell);
+
+	    coeff_func->value_list (fe_values_laplace.get_quadrature_points(),
+				    coefficient_values);
+
 
 	    // evaluate RHS function at quadrature points.
 	    if(lammpsinput == 0)
 	    {
-		rhs_func->value_list (fe_values.get_quadrature_points(),
+		rhs_func->value_list (fe_values_rhs.get_quadrature_points(),
 				      density_values);
 	    }
 	    else if(lammpsinput != 0)
 		density_values = this->density_values_for_each_cell.at(cell);
 
 
-	    for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+	    // Assemble local cell matrix contribution to global matrix
+	    // Quadrature rule for laplace is for (degree+1) quadrature points
+	    for (unsigned int q_point=0; q_point<n_q_points_laplace; ++q_point)
 		for (unsigned int i=0; i<dofs_per_cell; ++i)
-		    cell_rhs(i) += (fe_values.shape_value(i,q_point)
-				    * density_values[q_point]
-				    * fe_values.JxW(q_point));
+		{
+		    for (unsigned int j=0; j<dofs_per_cell; ++j)
+			cell_matrix(i,j) += (coefficient_values[q_point] *
+					     fe_values_laplace.shape_grad(i,q_point) *
+					     fe_values_laplace.shape_grad(j,q_point) *
+					     fe_values_laplace.JxW(q_point));
+
+		}
 
 	    cell->get_dof_indices (local_dof_indices);
+	    constraints.distribute_local_to_global (cell_matrix,
+						    local_dof_indices,
+						    system_matrix);
+
+	    // Assemble local cell rhs vector contribution, body loading i.e. charge density
+	    // For the numerical integration of complex error function in rhs
+	    // we use higher number of quadrature points taken as user parameter
+	    // Thus the Quadrature rule is for (degree + user_parameter) quadrature points
+	    for (unsigned int q_point=0; q_point<n_q_points_rhs; ++q_point)
+		for (unsigned int i=0; i<dofs_per_cell; ++i)
+		{
+		    cell_rhs(i) += (fe_values_rhs.shape_value(i,q_point) *
+				    density_values[q_point] *
+				    fe_values_rhs.JxW(q_point));
+
+		}
+
+	    // Distribute the local cell rhs contribution to global rhs vector
+	    // along with the contribution arising from inhomogeneous b.c. in terms of
+	    // local cell matrix element * inhomog.b.c. value for constrained dof
 	    constraints.distribute_local_to_global (cell_rhs,
 						    local_dof_indices,
-						    system_rhs);
+						    system_rhs,
+						    cell_matrix);
 	}
 
+    system_matrix.compress(VectorOperation::add);
     system_rhs.compress(VectorOperation::add);
 }
-
-
 
 template <int dim>
 void LaplaceProblem<dim>::assemble_multigrid ()
@@ -1428,15 +1417,12 @@ void LaplaceProblem<dim>::run ()
         pcout << "   Number of degrees of freedom: " << mg_dof_handler.n_dofs() << " (by level: ";
         for (unsigned int level=0; level<triangulation.n_global_levels(); ++level)
             pcout << mg_dof_handler.n_dofs(level) << (level == triangulation.n_global_levels()-1 ? ")" : ", ");
-        pcout << std::endl;
+	pcout << std::endl;
 
-	{
-	    if(dim == 2)
-		grid_output_debug(cycle);
+	if(dim == 2)
+	    grid_output_debug(cycle);
 
-	    assemble_global_matrix ();
-	    assemble_global_rhs_vector ();
-	}
+	assemble_system ();
 
 	if(PreconditionerType == "GMG")
 	    assemble_multigrid ();

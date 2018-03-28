@@ -120,8 +120,7 @@ public:
 
 protected:
     void setup_system (const unsigned int &);
-    void assemble_global_matrix ();
-    void assemble_global_rhs_vector();
+    void assemble_system ();
     void assemble_multigrid ();
     void solve ();
     void refine_grid (const unsigned int &);
