@@ -112,9 +112,9 @@ class LaplaceProblem
 {
 public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
-		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
-                    const double &, const double &,
-		    const bool &, const bool &, const bool &, const bool &, const bool &, const bool &, const unsigned int &);
+		    const std::string &, const double &, const double &, const double &, const unsigned int &,
+		    const unsigned int &, const unsigned int &, const double &, const double &,
+		    const bool &, const bool &, const bool &, const bool &, const bool &, const unsigned int &);
     ~LaplaceProblem();
     void run ();
 
@@ -172,16 +172,17 @@ protected:
     const unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     const double domain_size_left , domain_size_right, mesh_size_h;
     const unsigned int repetitions_for_vacuum;
-    const std::string Problemtype, PreconditionerType, LammpsInputFilename;
+    const std::string Problemtype, PreconditionerType, LammpsInputFilename, Boundary_conditions;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
+    std::unique_ptr<Function<dim>> exact_solution;
     bool lammpsinput;
     const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support,
-		flag_rhs_assembly, flag_boundary_conditions, flag_output_time;
+		flag_rhs_assembly, flag_output_time;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
-    unsigned int * atom_types;
-    double * charges;
+    std::vector<unsigned int> atom_types;
+    std::vector<double> charges;
     const double r_c, nonzero_density_radius_parameter;
 
     typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
@@ -279,12 +280,11 @@ template <int dim>
 class Analytical_Solution : public Function<dim>
 {
 public:
-    //Add atom_posn and atom_charge and use them in value
-    const double r_c;
-    const Point<dim> atom_position;
-    const double charge;
-    Analytical_Solution(const double &_r_c, const Point<dim> &_pos, const double &_charge)
-	: Function<dim>(),r_c(_r_c),atom_position(_pos),charge(_charge) {}
+    const double &r_c;
+    const std::vector<Point<dim> > &atom_positions;
+    const std::vector<double> &charges;
+    Analytical_Solution(const double &_r_c, const std::vector<Point<dim> > &_pos, const std::vector<double> &_charges)
+	: Function<dim>(),r_c(_r_c),atom_positions(_pos),charges(_charges) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -297,7 +297,7 @@ public:
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
-// Non-zero DBC for Hartree potential by employment of quadrupole expansion
+// Non-zero DBC for potential by employment of quadrupole expansion
 template <int dim>
 class NonZeroDBC : public Function<dim>
 {
@@ -309,21 +309,6 @@ public:
     NonZeroDBC(const Point<dim> &x0_,
 	       const Tensor<1, dim, double> &p0_,
 	       const Tensor<2, dim, double> &Q0_): Function<dim>(),x0(x0_), p0(p0_), Q0(Q0_){}
-    virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
-
-// Exact boundary conditions applied to the domain
-// just to check if all the other implementation is correct
-template <int dim>
-class ExactDBC : public Function<dim>
-{
-public:
-    const double r_c;
-    const Point<dim> atom_position;
-    const double charge;
-
-    ExactDBC(const double &_r_c, const Point<dim> &_pos, const double &_charge)
-	: Function<dim>(),r_c(_r_c),atom_position(_pos),charge(_charge) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
 };
 
@@ -347,15 +332,17 @@ double Coefficient<dim>::value (const Point<dim> &,
 template <int dim>
 double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) const
 {
-    // Add the distance between atom position and point
-    // Multiplied by the charge value. check V_I^L
-    // This will be the analytical sol for single atom
-
-    const double radial_distance = atom_position.distance(p);
-    if(radial_distance < 1e-10)
-	return charge * 2.0 / (std::sqrt(numbers::PI) * r_c);
-    else
-	return charge * (erf(radial_distance / r_c)/ radial_distance);
+    Assert(atom_positions.size() == charges.size(), ExcInternalError());
+    double return_value = 0.0;
+    for (unsigned int i = 0; i < charges.size(); ++i)
+	{
+	    const double radial_distance = atom_positions[i].distance(p);
+	    if(radial_distance < 1e-10)
+		return_value += charges[i] * 2.0 / (std::sqrt(numbers::PI) * r_c);
+	    else
+		return_value += charges[i] * (erf(radial_distance / r_c)/ radial_distance);
+	}
+    return return_value;
 }
 
 template <int dim>
@@ -372,13 +359,6 @@ double NonZeroDBC<dim>::value(const Point<dim> &p, const unsigned int) const
     const double x_diff_norm = x_diff.norm();
     const auto x_Q_x = contract3(x_diff, Q0, x_diff);
     return (p0 * x_diff) / (std::pow(x_diff_norm,3)) + (0.5 * x_Q_x) / (std::pow(x_diff_norm,5));
-}
-
-template <int dim>
-double ExactDBC<dim>::value(const Point<dim> &p, const unsigned int) const
-{
-    const double radial_distance = atom_position.distance(p);
-    return charge * (erf(radial_distance / r_c)/ radial_distance);
 }
 }
 

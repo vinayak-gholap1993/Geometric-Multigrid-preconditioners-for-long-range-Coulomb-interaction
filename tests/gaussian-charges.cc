@@ -39,7 +39,7 @@ void check ()
        <<"subsection Problem Selection"<<std::endl
         << "    set Problem = GaussianCharges" << std::endl
         << "    set Dimension = 3" << std::endl
-	<< "	set Homogeneous Boundary Conditions = false" << std::endl
+	<< "	set Boundary conditions selection = Inhomogeneous" << std::endl
         <<"end"<<std::endl
        <<"subsection Lammps data"<<std::endl
       << "  set Lammps input file = " << SOURCE_DIR << "/atom_n1_2.data" << std::endl
@@ -76,7 +76,7 @@ void check ()
   prm.enter_subsection("Problem Selection");
   std::string Problemtype= (prm.get("Problem"));
   const unsigned int d = prm.get_integer("Dimension");
-  const bool & flag_boundary_conditions = prm.get_bool ("Homogeneous Boundary Conditions");
+  const std::string & Boundary_conditions = prm.get("Boundary conditions selection");
   prm.leave_subsection();
 
   prm.enter_subsection("Lammps data");
@@ -85,18 +85,20 @@ void check ()
 
 	  if (d == 2)
 	  {
-	      Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-						mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
-						r_c, nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution, flag_rhs_field,
-						flag_atoms_support, flag_boundary_conditions, flag_output_time, quadrature_degree_rhs);
+	      Step50::LaplaceProblem<2> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, Boundary_conditions,
+							domain_size_left, domain_size_right, mesh_size_h, repetitions_for_vacuum,
+							number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c,
+							nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution,
+							flag_rhs_field, flag_atoms_support, flag_output_time, quadrature_degree_rhs);;
 	      laplace_problem.run ();
 	  }
 	  else if (d == 3)
 	  {
-	      Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, domain_size_left, domain_size_right,
-						mesh_size_h, repetitions_for_vacuum, number_of_global_refinement, number_of_adaptive_refinement_cycles,
-						r_c, nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution, flag_rhs_field,
-						flag_atoms_support, flag_boundary_conditions, flag_output_time, quadrature_degree_rhs);
+	      Step50::LaplaceProblem<3> laplace_problem(Degree , prm ,Problemtype, PreconditionerType, LammpsInputFile, Boundary_conditions,
+							domain_size_left, domain_size_right, mesh_size_h, repetitions_for_vacuum,
+							number_of_global_refinement, number_of_adaptive_refinement_cycles, r_c,
+							nonzero_density_radius_parameter, flag_rhs_assembly, flag_analytical_solution,
+							flag_rhs_field, flag_atoms_support, flag_output_time, quadrature_degree_rhs);;
 	      laplace_problem.run ();
 	  }
           else if (d != 2 && d != 3)

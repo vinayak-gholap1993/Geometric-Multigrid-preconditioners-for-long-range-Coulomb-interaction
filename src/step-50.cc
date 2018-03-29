@@ -38,8 +38,9 @@ void ParameterReader::declare_parameters()
 
         prm.declare_entry ("Dimension", "2", Patterns::Integer(), "Problem space dimension");
 
-	prm.declare_entry ("Homogeneous Boundary Conditions", "true", Patterns::Bool (),
-			   "Set flag for homogeneous or inhomogeneous dirichlet boundary condtions");
+	prm.declare_entry ("Boundary conditions selection", "Inhomogeneous",
+			   Patterns::Selection ("Homogeneous | Inhomogeneous | Exact"),
+			   "Selection between Homogeneous, Inhomogeneous or Exact dirichlet boundary condtions");
     }
     prm.leave_subsection();
 
@@ -102,13 +103,13 @@ void ParameterReader::read_parameters(const std::string &parameter_file)
 template <int dim>
 LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandler &param,
                                      const std::string &Problemtype, const std::string &PreconditionerType, const std::string &LammpsInputFile,
-				     const double &domain_size_left, const double &domain_size_right, const double &mesh_size_h,
-				     const unsigned int &repetitions_for_vacuum, const unsigned int &number_of_global_refinement,
+				     const std::string &Boundary_conditions, const double &domain_size_left, const double &domain_size_right,
+				     const double &mesh_size_h, const unsigned int &repetitions_for_vacuum,
+				     const unsigned int &number_of_global_refinement,
                                      const unsigned int &number_of_adaptive_refinement_cycles,
 				     const double &r_c, const double &nonzero_density_radius_parameter, const bool &flag_rhs_assembly,
 				     const bool & flag_analytical_solution, const bool & flag_rhs_field, const bool & flag_atoms_support,
-				     const bool & flag_boundary_conditions,  const bool & flag_output_time,
-				     const unsigned int & quadrature_degree_rhs)
+				     const bool & flag_output_time, const unsigned int & quadrature_degree_rhs)
     :    
     pcout (std::cout,
           (Utilities::MPI::this_mpi_process(MPI_COMM_WORLD)
@@ -131,11 +132,11 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     Problemtype(Problemtype),
     PreconditionerType(PreconditionerType),
     LammpsInputFilename(LammpsInputFile),
+    Boundary_conditions(Boundary_conditions),
     flag_analytical_solution (flag_analytical_solution),
     flag_rhs_field (flag_rhs_field),
     flag_atoms_support (flag_atoms_support),
     flag_rhs_assembly(flag_rhs_assembly),
-    flag_boundary_conditions(flag_boundary_conditions),
     flag_output_time (flag_output_time),
     r_c(r_c),
     nonzero_density_radius_parameter(nonzero_density_radius_parameter),
@@ -158,6 +159,9 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     {
         rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>(r_c);
         coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
+	exact_solution = std::make_unique<GaussianCharges::Analytical_Solution<dim>>(r_c,
+										     atom_positions,
+										     charges);
     }
 
 
@@ -171,8 +175,6 @@ LaplaceProblem<dim>::~LaplaceProblem ()
     if(flag_rhs_assembly)
 	charges_list_for_each_cell.clear();
     density_values_for_each_cell.clear();
-    delete[] atom_types;
-    delete[] charges;
 }
 
 
@@ -202,8 +204,8 @@ void LaplaceProblem<dim>::read_lammps_input_file(const std::string& filename)
                 {
                     file >> number_of_atoms;
                     pcout<< "Number of atoms: " << number_of_atoms<< std::endl;
-                    atom_types = new unsigned int [number_of_atoms]();
-                    charges = new double [number_of_atoms]();
+		    atom_types.resize(number_of_atoms);
+		    charges.resize(number_of_atoms);
                     atom_positions.resize(number_of_atoms);
                 }
                 else if(count == 35)
@@ -685,18 +687,12 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     ZeroFunction<dim>                    homogeneous_dirichlet_bc ;
     GaussianCharges::NonZeroDBC<dim> nonzeroDBC(Point<dim>(),this->dipole_moment,this->quadrupole_moment);
 
- /*   for(unsigned int i = 0; i < number_of_atoms; i++)
-	{
-	    VectorTools::interpolate_boundary_values (mg_dof_handler,
-						      0,
-						      GaussianCharges::ExactDBC<dim>(this->r_c,this->atom_positions[i],
-										     this->charges[i]),
-						      constraints);
-
-	}
-*/
-    dirichlet_boundary_functions[0] = flag_boundary_conditions ? static_cast<const Function<dim>* >(&homogeneous_dirichlet_bc)
-							       : static_cast<const Function<dim>* >(&nonzeroDBC);
+    if(Boundary_conditions == "Homogeneous")
+	dirichlet_boundary_functions[0] = static_cast<const Function<dim>* >(&homogeneous_dirichlet_bc);
+    else if (Boundary_conditions == "Inhomogeneous")
+	dirichlet_boundary_functions[0] = static_cast<const Function<dim>* >(&nonzeroDBC);
+    else if (Boundary_conditions == "Exact")
+	dirichlet_boundary_functions[0] = static_cast<const Function<dim>* >(exact_solution.get());
 
     VectorTools::interpolate_boundary_values (mg_dof_handler,
 					      dirichlet_boundary_functions,
@@ -1137,24 +1133,15 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 	    else
 	    {
 		if (number_of_atoms < 10)
-		    {
-			LA::MPI::Vector total_analytical_sol;
-			total_analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-			for(unsigned int i = 0; i < number_of_atoms; i++)
-			    {
-				//TODO: check for sol_ghost with soln for all atoms added in it
-				LA::MPI::Vector analytical_sol;
-				analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
-				VectorTools::interpolate (mg_dof_handler,
-							  GaussianCharges::Analytical_Solution<dim> (r_c,
-												     this->atom_positions[i],
-												     this->charges[i]),
-							  analytical_sol);
+		    {		    
+			LA::MPI::Vector analytical_sol;
+			analytical_sol.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+			VectorTools::interpolate (mg_dof_handler,
+						  static_cast<const Function<dim>& >(*(exact_solution.get())),
+						  analytical_sol);
 
-				total_analytical_sol += analytical_sol;
-			    }
 			analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
-			analytical_sol_ghost = total_analytical_sol;
+			analytical_sol_ghost = analytical_sol;
 			data_out.add_data_vector (analytical_sol_ghost, "Analytical_Solution_atoms");
 		    }
 	    }

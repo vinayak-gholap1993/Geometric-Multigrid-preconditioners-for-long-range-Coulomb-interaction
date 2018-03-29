@@ -63,8 +63,8 @@ subsection Problem Selection
 	set Problem = GaussianCharges
 	set Dimension = 3
 
-	#Set flag for homogeneous or inhomogeneous dirichlet boundary condtions
-	set Homogeneous Boundary Conditions = true
+	#Selection between Homogeneous, Inhomogeneous or Exact dirichlet boundary condtions
+	set Boundary conditions selection = Inhomogeneous
 end	
 
 subsection Lammps data
