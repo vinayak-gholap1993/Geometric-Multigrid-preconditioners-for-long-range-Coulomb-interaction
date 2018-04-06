@@ -159,7 +159,7 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     {
         rhs_func   = std::make_shared<GaussianCharges::RightHandSide<dim>>(r_c);
         coeff_func = std::make_shared<GaussianCharges::Coefficient<dim>>();
-	exact_solution = std::make_unique<GaussianCharges::Analytical_Solution<dim>>(r_c,
+	exact_solution = dealii::std_cxx14::make_unique<GaussianCharges::Analytical_Solution<dim>>(r_c,
 										     atom_positions,
 										     charges);
     }
