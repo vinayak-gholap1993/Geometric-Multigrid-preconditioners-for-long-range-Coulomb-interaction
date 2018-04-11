@@ -1328,6 +1328,63 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 
 
 template <int dim>
+void LaplaceProblem<dim>::postprocess_error_in_energy_norm()
+{
+    vector_t fe_solution;
+    fe_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
+    fe_solution = solution;
+    Functions::FEFieldFunction<dim,DoFHandler<dim>,vector_t> fe_solution_function (mg_dof_handler, fe_solution);
+
+    vector_t analytical_solution;
+    analytical_solution.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
+    VectorTools::interpolate (mg_dof_handler,
+			      static_cast<const Function<dim>& >(*(exact_solution.get())),
+			      analytical_solution);
+
+    vector_t analytical_sol_ghost;
+    analytical_sol_ghost.reinit(mg_dof_handler.locally_owned_dofs(),locally_relevant_set,MPI_COMM_WORLD);
+    analytical_sol_ghost = analytical_solution;
+    Functions::FEFieldFunction<dim,DoFHandler<dim>,vector_t> analytical_solution_function (mg_dof_handler, analytical_sol_ghost);
+
+    const QGauss<dim>  quadrature_formula(degree+1);
+
+    FEValues<dim> fe_values (fe, quadrature_formula,
+			     update_values    |  update_gradients |
+			     update_quadrature_points  |  update_JxW_values);
+    const unsigned int   n_q_points    = quadrature_formula.size();
+
+    double Error = 0.0;
+
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = mg_dof_handler.begin_active(),
+    endc = mg_dof_handler.end();
+    for (; cell!=endc; ++cell)
+	if (cell->is_locally_owned())
+	{
+	    fe_values.reinit (cell);
+	    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
+	    fe_solution_function.set_active_cell(cell);
+	    analytical_solution_function.set_active_cell(cell);
+
+	    for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+		{
+		    try
+		    {
+			const Tensor<1, dim, double>& grad_fe_sol = fe_solution_function.gradient(quadrature_points[q_point]);
+			const Tensor<1, dim, double>& grad_analytical_sol = analytical_solution_function.gradient(quadrature_points[q_point]);
+			const Tensor<1, dim, double>& temp_Tensor = grad_fe_sol - grad_analytical_sol;
+			Error += std::sqrt(temp_Tensor.norm_square() * fe_values.JxW(q_point));
+		    }
+		    catch (const VectorTools::ExcPointNotAvailableHere &)
+		    {
+		    }
+		}
+	}
+    Error = Utilities::MPI::sum (Error, MPI_COMM_WORLD);
+    pcout << "Error in FE solution in energy norm:  " << Error << std::endl;
+}
+
+template <int dim>
 void LaplaceProblem<dim>::run ()
 {
     pcout << "Running with "
@@ -1419,7 +1476,11 @@ void LaplaceProblem<dim>::run ()
         //solution_gradient();
 	output_results (cycle);
 	if(number_of_atoms < 300)
-	    postprocess_electrostatic_energy();
+	    {
+		postprocess_electrostatic_energy();
+		postprocess_error_in_energy_norm();
+	    }
+
 
 	timer.stop();
 //	pcout << "   Elapsed wall time for refinement cycle "<<cycle <<" : " << timer.wall_time() << " seconds."<<std::endl;

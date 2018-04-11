@@ -140,6 +140,7 @@ protected:
     const double short_ranged_potential(const Point<dim> & , const Point<dim> &, const double &);
     void compute_charge_densities();
     void compute_moments();
+    void postprocess_error_in_energy_norm();
 
     ConditionalOStream                        pcout;
     TimerOutput computing_timer;
