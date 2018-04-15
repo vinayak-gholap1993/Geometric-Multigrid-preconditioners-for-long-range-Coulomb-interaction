@@ -31,6 +31,7 @@
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/tensor.h>
 #include <deal.II/base/symmetric_tensor.h>
+#include <deal.II/base/function_spherical.h>
 
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -287,6 +288,7 @@ public:
     Analytical_Solution(const double &_r_c, const std::vector<Point<dim> > &_pos, const std::vector<double> &_charges)
 	: Function<dim>(),r_c(_r_c),atom_positions(_pos),charges(_charges) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
+    virtual Tensor<1, dim, double> gradient (const Point<dim>   &p,  const unsigned int  component = 0) const;
 };
 
 template <int dim>
@@ -335,13 +337,30 @@ double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) 
 {
     Assert(atom_positions.size() == charges.size(), ExcInternalError());
     double return_value = 0.0;
+    const double inv_constant = 1.0 / (std::sqrt(numbers::PI) * r_c);
     for (unsigned int i = 0; i < charges.size(); ++i)
 	{
 	    const double radial_distance = atom_positions[i].distance(p);
 	    if(radial_distance < 1e-10)
-		return_value += charges[i] * 2.0 / (std::sqrt(numbers::PI) * r_c);
+		return_value += charges[i] * 2.0 * inv_constant;
 	    else
 		return_value += charges[i] * (erf(radial_distance / r_c)/ radial_distance);
+	}
+    return return_value;
+}
+
+template <int dim>
+Tensor<1, dim, double> Analytical_Solution<dim>::gradient(const Point<dim> &p, const unsigned int) const
+{
+    Assert(atom_positions.size() == charges.size(), ExcInternalError());
+    Tensor<1, dim, double> return_value;
+    const double inv_constant = 1.0 / (std::sqrt(numbers::PI) * r_c);
+    for (unsigned int i = 0; i < charges.size(); ++i)
+	{
+	    const double radial_distance = atom_positions[i].distance(p);
+	    const Tensor <1, dim> r_direction = (atom_positions[i] - p)/radial_distance;
+	    return_value += charges[i] * ( ((2.0 * radial_distance * std::exp(-std::pow((radial_distance / r_c),2)) * inv_constant) -
+					  erf(radial_distance / r_c)) / (std::pow(radial_distance,2)) )* r_direction;
 	}
     return return_value;
 }

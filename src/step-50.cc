@@ -1342,7 +1342,6 @@ void LaplaceProblem<dim>::postprocess_error_in_energy_norm()
     fe_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
     fe_solution = solution;
 
-    std::vector<double> analytical_solution (n_q_points);
     std::vector<Tensor<1, dim> > analytical_solution_gradient (n_q_points);
     std::vector<Tensor<1, dim> > fe_solution_gradient (n_q_points);
     double Error = 0.0;
@@ -1357,17 +1356,16 @@ void LaplaceProblem<dim>::postprocess_error_in_energy_norm()
 	    fe_values.get_function_gradients (fe_solution, fe_solution_gradient);
 
 	    Assert(n_q_points == fe_values.get_quadrature_points().size(), ExcInternalError());
-	    exact_solution->value_list (fe_values.get_quadrature_points(), analytical_solution);
-	    fe_values.get_function_gradients (analytical_solution, analytical_solution_gradient);
+	    exact_solution->gradient_list (fe_values.get_quadrature_points(), analytical_solution_gradient);
 
 	    for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
 		{
 		    const Tensor<1, dim, double> & temp_Tensor = fe_solution_gradient[q_point] - analytical_solution_gradient[q_point];
-		    Error += std::sqrt(temp_Tensor.norm_square() * fe_values.JxW(q_point));
+		    Error += temp_Tensor.norm_square() * fe_values.JxW(q_point);
 		}
 	}
     Error = Utilities::MPI::sum (Error, MPI_COMM_WORLD);
-    pcout << "Error in FE solution in energy norm:  " << Error << std::endl;
+    pcout << "Error in FE solution in energy norm:  " << std::sqrt(Error) << std::endl;
 }
 
 template <int dim>
