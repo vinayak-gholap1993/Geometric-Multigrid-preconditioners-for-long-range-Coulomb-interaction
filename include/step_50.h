@@ -358,7 +358,7 @@ Tensor<1, dim, double> Analytical_Solution<dim>::gradient(const Point<dim> &p, c
     for (unsigned int i = 0; i < charges.size(); ++i)
 	{
 	    const double radial_distance = atom_positions[i].distance(p);
-	    const Tensor <1, dim> r_direction = (atom_positions[i] - p)/radial_distance;
+	    const Tensor <1, dim> r_direction = (p - atom_positions[i])/radial_distance;
 	    return_value += charges[i] * ( ((2.0 * radial_distance * std::exp(-std::pow((radial_distance / r_c),2)) * inv_constant) -
 					  erf(radial_distance / r_c)) / (std::pow(radial_distance,2)) )* r_direction;
 	}
