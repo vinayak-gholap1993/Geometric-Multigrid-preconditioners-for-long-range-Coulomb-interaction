@@ -124,6 +124,7 @@ protected:
     void assemble_system ();
     void assemble_multigrid ();
     void solve ();
+    void estimate_error_and_mark_cells();
     void refine_grid (const unsigned int &);
     //void solution_gradient();
     void read_lammps_input_file(const std::string& filename);
@@ -195,6 +196,7 @@ protected:
     Tensor<2, dim, double> quadrupole_moment;
     std::map<cell_it, std::vector<double> > density_values_for_each_cell;
     const unsigned int quadrature_degree_rhs;
+    Vector<float> error_per_cell;
 
 };
 }

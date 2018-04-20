@@ -663,6 +663,8 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     solution.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
     system_rhs.reinit(mg_dof_handler.locally_owned_dofs(), MPI_COMM_WORLD);
 
+    this->error_per_cell.reinit(triangulation.n_active_cells());
+
     constraints.reinit (locally_relevant_set);
     hanging_node_constraints.reinit (locally_relevant_set);
     DoFTools::make_hanging_node_constraints (mg_dof_handler, hanging_node_constraints);
@@ -1018,12 +1020,9 @@ void LaplaceProblem<dim>::solve ()
 }
 
 
-
-
 template <int dim>
-void LaplaceProblem<dim>::refine_grid (const unsigned int &cycle)
+void LaplaceProblem<dim>::estimate_error_and_mark_cells()
 {
-    TimerOutput::Scope t(computing_timer, "Refine, solution transfer and sending atoms list to child cells");
     Vector<float> estimated_error_per_cell (triangulation.n_active_cells());
 
     LA::MPI::Vector temp_solution;
@@ -1031,13 +1030,33 @@ void LaplaceProblem<dim>::refine_grid (const unsigned int &cycle)
     temp_solution = solution;
 
     KellyErrorEstimator<dim>::estimate (static_cast<DoFHandler<dim>&>(mg_dof_handler),
-                                        QGauss<dim-1>(degree+1),
-                                        typename FunctionMap<dim>::type(),
-                                        temp_solution,
-                                        estimated_error_per_cell);
+					QGauss<dim-1>(degree+1),
+					typename FunctionMap<dim>::type(),
+					temp_solution,
+					estimated_error_per_cell
+					/*,ComponentMask(),
+					nullptr,
+					numbers::invalid_unsigned_int,
+					numbers::invalid_subdomain_id,
+					numbers::invalid_material_id,
+					cell_diameter*/
+					);
 
     const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
+
+    pcout << "Threshold value for refinement:	" << threshold << std::endl;
+    this->error_per_cell = estimated_error_per_cell;
+
     GridRefinement::refine (triangulation, estimated_error_per_cell, threshold);
+}
+
+
+
+
+template <int dim>
+void LaplaceProblem<dim>::refine_grid (const unsigned int &cycle)
+{
+    TimerOutput::Scope t(computing_timer, "Refine, solution transfer and sending atoms list to child cells");
 
     if((lammpsinput != 0) && (flag_rhs_assembly))
         prepare_for_coarsening_and_refinement();
@@ -1216,6 +1235,8 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
     for (unsigned int i=0; i<subdomain.size(); ++i)
         subdomain(i) = triangulation.locally_owned_subdomain();
     data_out.add_data_vector (subdomain, "subdomain");
+
+    data_out.add_data_vector (this->error_per_cell, "error_indicator");
 
     data_out.build_patches (0);
 
@@ -1458,6 +1479,7 @@ void LaplaceProblem<dim>::run ()
 	solve ();
 
         //solution_gradient();
+	estimate_error_and_mark_cells();
 	output_results (cycle);
 	if(number_of_atoms < 300)
 	    {
