@@ -140,8 +140,9 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
     flag_output_time (flag_output_time),
     r_c(r_c),
     nonzero_density_radius_parameter(nonzero_density_radius_parameter),
-    quadrature_degree_rhs(quadrature_degree_rhs)
-
+    quadrature_degree_rhs(quadrature_degree_rhs),
+    quadrature_formula_laplace(degree+1),
+    quadrature_formula_rhs(degree+quadrature_degree_rhs)
 {
     pcout<<"Problem type is:   " << Problemtype<<std::endl;
     pcout<<"Preconditioner :    " << PreconditionerType<<std::endl;
@@ -163,8 +164,6 @@ LaplaceProblem<dim>::LaplaceProblem (const unsigned int degree , ParameterHandle
 										     atom_positions,
 										     charges);
     }
-
-
 }
 
 template <int dim>
@@ -509,19 +508,17 @@ const double LaplaceProblem<dim>::short_ranged_potential(const Point<dim> & poin
 template <int dim>
 void LaplaceProblem<dim>::compute_charge_densities()
 {
-    const QGauss<dim>  quadrature_formula(degree + quadrature_degree_rhs);
+    this->density_values_for_each_cell.clear();
 
-    FEValues<dim> fe_values (fe, quadrature_formula,
+    FEValues<dim> fe_values (fe, this->quadrature_formula_rhs,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
-    const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int   n_q_points    = this->quadrature_formula_rhs.size();
 
     std::vector<double> density_values(n_q_points);
 
     const double constant_value = 4.0 * (numbers::PI)  / (std::pow(this->r_c, 3) * std::pow(numbers::PI, 1.5));
     const double r_c_squared_inverse = 1.0 / (this->r_c * this->r_c);
-
-    std::set<unsigned int> set_atom_indices;
 
     // Evaluate the charge densities to be used in RHS assembly here
     typename DoFHandler<dim>::active_cell_iterator
@@ -532,9 +529,6 @@ void LaplaceProblem<dim>::compute_charge_densities()
 	{
 	    fe_values.reinit (cell);
 	    const std::vector<Point<dim> > & quadrature_points = fe_values.get_quadrature_points();
-
-	    if(flag_rhs_assembly)
-		set_atom_indices = this->charges_list_for_each_cell.at(cell);
 
 	    for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
 		{
@@ -560,6 +554,7 @@ void LaplaceProblem<dim>::compute_charge_densities()
 		    //If flag = true iterate only over the neighouring atoms and apply rhs optimization
 		    if(flag_rhs_assembly)
 			{
+			    const std::set<unsigned int> & set_atom_indices = this->charges_list_for_each_cell.at(cell);
 			    for(const auto & i : set_atom_indices)
 				{
 				    const Point<dim> & Xi = this->atom_positions[i];
@@ -574,9 +569,6 @@ void LaplaceProblem<dim>::compute_charge_densities()
 		}
 
 	    this->density_values_for_each_cell.insert(std::make_pair(cell, density_values));
-
-	    if(flag_rhs_assembly)
-		set_atom_indices.clear();
 	}
 }
 
@@ -584,12 +576,10 @@ void LaplaceProblem<dim>::compute_charge_densities()
 template <int dim>
 void LaplaceProblem<dim>::compute_moments()
 {
-    const QGauss<dim>  quadrature_formula(degree + quadrature_degree_rhs);
-
-    FEValues<dim> fe_values (fe, quadrature_formula,
+    FEValues<dim> fe_values (fe, this->quadrature_formula_rhs,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
-    const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int   n_q_points    = this->quadrature_formula_rhs.size();
 
     // Compute the dipole moment Po
     dipole_moment = Tensor<1, dim, double>();
@@ -744,21 +734,21 @@ void LaplaceProblem<dim>::assemble_system ()
 {
     TimerOutput::Scope t(computing_timer, "Assemble system");
 
-    // Use of different number of quadrature points for laplace and rhs integration
-    const QGauss<dim>  quadrature_formula_laplace(degree+1);
-    const QGauss<dim>  quadrature_formula_rhs(degree+quadrature_degree_rhs);
+    system_matrix = 0.;
+    system_rhs = 0.;
 
-    FEValues<dim> fe_values_laplace (fe, quadrature_formula_laplace,
+    // Use of different number of quadrature points for laplace and rhs integration
+    FEValues<dim> fe_values_laplace (fe, this->quadrature_formula_laplace,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
-    FEValues<dim> fe_values_rhs (fe, quadrature_formula_rhs,
+    FEValues<dim> fe_values_rhs (fe, this->quadrature_formula_rhs,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
 
 
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-    const unsigned int   n_q_points_laplace    = quadrature_formula_laplace.size();
-    const unsigned int   n_q_points_rhs    = quadrature_formula_rhs.size();
+    const unsigned int   n_q_points_laplace    = this->quadrature_formula_laplace.size();
+    const unsigned int   n_q_points_rhs    = this->quadrature_formula_rhs.size();
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       cell_rhs (dofs_per_cell);
@@ -784,17 +774,6 @@ void LaplaceProblem<dim>::assemble_system ()
 	    coeff_func->value_list (fe_values_laplace.get_quadrature_points(),
 				    coefficient_values);
 
-
-	    // evaluate RHS function at quadrature points.
-	    if(lammpsinput == 0)
-	    {
-		rhs_func->value_list (fe_values_rhs.get_quadrature_points(),
-				      density_values);
-	    }
-	    else if(lammpsinput != 0)
-		density_values = this->density_values_for_each_cell.at(cell);
-
-
 	    // Assemble local cell matrix contribution to global matrix
 	    // Quadrature rule for laplace is for (degree+1) quadrature points
 	    for (unsigned int q_point=0; q_point<n_q_points_laplace; ++q_point)
@@ -805,13 +784,24 @@ void LaplaceProblem<dim>::assemble_system ()
 					     fe_values_laplace.shape_grad(i,q_point) *
 					     fe_values_laplace.shape_grad(j,q_point) *
 					     fe_values_laplace.JxW(q_point));
-
 		}
 
 	    cell->get_dof_indices (local_dof_indices);
 	    constraints.distribute_local_to_global (cell_matrix,
 						    local_dof_indices,
 						    system_matrix);
+
+
+	    // evaluate RHS function at quadrature points.
+	    if(lammpsinput == 0)
+	    {
+		rhs_func->value_list (fe_values_rhs.get_quadrature_points(),
+				      density_values);
+	    }
+	    else if(lammpsinput != 0)
+		density_values = this->density_values_for_each_cell.at(cell);
+
+	    Assert (density_values.size()==n_q_points_rhs, ExcInternalError());
 
 	    // Assemble local cell rhs vector contribution, body loading i.e. charge density
 	    // For the numerical integration of complex error function in rhs
@@ -843,14 +833,13 @@ template <int dim>
 void LaplaceProblem<dim>::assemble_multigrid ()
 {
     TimerOutput::Scope t(computing_timer, "Assemble Multigrid");
-    QGauss<dim>  quadrature_formula(1+degree);
 
-    FEValues<dim> fe_values (fe, quadrature_formula,
+    FEValues<dim> fe_values (fe, this->quadrature_formula_laplace,
                              update_values   | update_gradients |
                              update_quadrature_points | update_JxW_values);
 
     const unsigned int   dofs_per_cell   = fe.dofs_per_cell;
-    const unsigned int   n_q_points      = quadrature_formula.size();
+    const unsigned int   n_q_points      = this->quadrature_formula_laplace.size();
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
 
@@ -950,6 +939,15 @@ void LaplaceProblem<dim>::solve ()
     SolverControl solver_control (500, 1e-8*system_rhs.l2_norm(), false);
     SolverCG<vector_t> solver (solver_control);
 
+    // Print the charges densities i.e. system rhs norms to compare with rhs optimization
+    pcout << "   L1 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l1_norm() << std::endl;
+    pcout << "   L2 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l2_norm() << std::endl;
+    pcout << "   LInfinity rhs norm " << std::setprecision(10) << std::scientific << system_rhs.linfty_norm() << std::endl;
+    // Print the Laplace matrix norm for debug purpose
+    pcout << "   L1 Matrix norm " << std::setprecision(10) << std::scientific << system_matrix.l1_norm() << std::endl;
+    pcout << "   LInfinity Matrix norm " << std::setprecision(10) << std::scientific << system_matrix.linfty_norm() << std::endl;
+    pcout << "   Frobenius Matrix norm " << std::setprecision(10) << std::scientific << system_matrix.frobenius_norm() << std::endl;
+
     if(PreconditionerType == "GMG")
     {
 //	TimerOutput::Scope t(computing_timer, "Solve: GMG Preconditioner");
@@ -1011,10 +1009,6 @@ void LaplaceProblem<dim>::solve ()
     pcout << "   L1 solution norm " << std::setprecision(10) << std::scientific << solution.l1_norm() << std::endl;
     pcout << "   L2 solution norm " << std::setprecision(10) << std::scientific << solution.l2_norm() << std::endl;
     pcout << "   LInfinity solution norm " << std::setprecision(10) << std::scientific << solution.linfty_norm() << std::endl;
-    // Print the charges densities i.e. system rhs norms to compare with rhs optimization
-//    pcout << "   L1 rhs norm " << std::setprecision(10) << std::scientific << system_rhs.l1_norm() << std::endl;
-//    pcout << "   L2 rhs norm " << system_rhs.l2_norm() << std::endl;
-//    pcout << "   LInfinity rhs norm " << system_rhs.linfty_norm() << std::endl;
 
     constraints.distribute (solution);
 }
@@ -1029,18 +1023,59 @@ void LaplaceProblem<dim>::estimate_error_and_mark_cells()
     temp_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);
     temp_solution = solution;
 
+    // Use of update hessians flag needed
+    FEValues<dim> fe_values (fe, this->quadrature_formula_rhs,
+			     update_values    |  update_gradients | update_hessians |
+			     update_quadrature_points  |  update_JxW_values);
+
+    const unsigned int   n_q_points    = this->quadrature_formula_rhs.size();
+
+    std::vector<double> fe_solution_laplacians (n_q_points);
+    std::vector<double>    density_values (n_q_points);
+
     KellyErrorEstimator<dim>::estimate (static_cast<DoFHandler<dim>&>(mg_dof_handler),
 					QGauss<dim-1>(degree+1),
 					typename FunctionMap<dim>::type(),
 					temp_solution,
-					estimated_error_per_cell
-					/*,ComponentMask(),
+					estimated_error_per_cell,
+					ComponentMask(),
 					nullptr,
 					numbers::invalid_unsigned_int,
 					numbers::invalid_subdomain_id,
 					numbers::invalid_material_id,
-					cell_diameter*/
-					);
+					KellyErrorEstimator<dim>::Strategy::cell_diameter);
+
+    typename DoFHandler<dim>::active_cell_iterator
+    cell = mg_dof_handler.begin_active(),
+    endc = mg_dof_handler.end();
+    for (; cell!=endc; ++cell)
+	if (cell->is_locally_owned())
+	{
+	    fe_values.reinit (cell);
+	    fe_values.get_function_laplacians (temp_solution, fe_solution_laplacians);
+
+	    Assert(n_q_points == fe_values.get_quadrature_points().size(), ExcInternalError());
+	    if(lammpsinput == 0)
+	    {
+		rhs_func->value_list (fe_values.get_quadrature_points(),
+				      density_values);
+	    }
+	    else if(lammpsinput != 0)
+		density_values = this->density_values_for_each_cell.at(cell);
+
+	    Assert(density_values.size() == n_q_points, ExcInternalError());
+
+	    double error = 0;
+	    for(unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+		{
+		    const double temp = fe_solution_laplacians[q_point] + 4.0 * numbers::PI * density_values[q_point];
+		    error +=  temp * temp * fe_values.JxW(q_point);
+		}
+	    estimated_error_per_cell(cell->active_cell_index()) = std::sqrt(
+		    std::pow(estimated_error_per_cell(cell->active_cell_index()),2) +
+		    std::pow(cell->diameter(),2) * error
+		    );
+	}
 
     const double threshold = 0.6 * Utilities::MPI::max(estimated_error_per_cell.linfty_norm(), MPI_COMM_WORLD);
 
@@ -1351,13 +1386,11 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 template <int dim>
 void LaplaceProblem<dim>::postprocess_error_in_energy_norm()
 {
-    const QGauss<dim>  quadrature_formula(degree+1);
-
-    FEValues<dim> fe_values (fe, quadrature_formula,
+    FEValues<dim> fe_values (fe, this->quadrature_formula_laplace,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
 
-    const unsigned int   n_q_points    = quadrature_formula.size();
+    const unsigned int   n_q_points    = this->quadrature_formula_laplace.size();
 
     vector_t fe_solution;
     fe_solution.reinit(locally_relevant_set, MPI_COMM_WORLD);

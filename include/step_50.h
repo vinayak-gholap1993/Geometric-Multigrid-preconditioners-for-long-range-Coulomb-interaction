@@ -197,6 +197,8 @@ protected:
     std::map<cell_it, std::vector<double> > density_values_for_each_cell;
     const unsigned int quadrature_degree_rhs;
     Vector<float> error_per_cell;
+    const QGauss<dim>  quadrature_formula_laplace;
+    const QGauss<dim>  quadrature_formula_rhs;
 
 };
 }
