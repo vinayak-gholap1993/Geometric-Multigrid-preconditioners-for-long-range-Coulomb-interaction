@@ -22,14 +22,14 @@ void check ()
 	<< "	set Vacuum repetitions = 10" << std::endl
         <<"end" <<std::endl
        <<"subsection Misc"<<std::endl
-	<< "    set Number of Adaptive Refinement = 4" << std::endl
+	<< "    set Number of Adaptive Refinement = 6" << std::endl
         << "    set smoothing length = 0.5" << std::endl
 	<< "    set Nonzero Density radius parameter around each charge = 3.5" << std::endl
 	<< "	set Output and calculation of Analytical solution = false" << std::endl
 	<< "	set Output of RHS field = false" << std::endl
 	<< "	set Output of support of each atom = false" << std::endl
 	<< "	set Flag for RHS evaluation optimization = true" << std::endl
-	<< "	set Quadrature points for RHS function = 1" << std::endl
+	<< "	set Quadrature points for RHS function = 4" << std::endl
 	<< "	set Output time summary table = false" << std::endl
         <<"end"<<std::endl
         << "    set Polynomial degree = 1" << std::endl
@@ -39,7 +39,7 @@ void check ()
        <<"subsection Problem Selection"<<std::endl
         << "    set Problem = GaussianCharges" << std::endl
         << "    set Dimension = 3" << std::endl
-	<< "	set Boundary conditions selection = Inhomogeneous" << std::endl
+	<< "	set Boundary conditions selection = Exact" << std::endl
         <<"end"<<std::endl
        <<"subsection Lammps data"<<std::endl
       << "  set Lammps input file = " << SOURCE_DIR << "/atom_n1_2.data" << std::endl
