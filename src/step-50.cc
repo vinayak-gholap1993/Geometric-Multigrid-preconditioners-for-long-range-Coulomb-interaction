@@ -695,14 +695,14 @@ void LaplaceProblem<dim>::setup_system (const unsigned int &cycle)
     hanging_node_constraints.close ();
 
     DynamicSparsityPattern dsp(mg_dof_handler.n_dofs(), mg_dof_handler.n_dofs());
-    DoFTools::make_sparsity_pattern (mg_dof_handler, dsp, constraints);pcout << "Test1" << std::endl;
+    DoFTools::make_sparsity_pattern (mg_dof_handler, dsp, constraints);
     system_matrix.reinit (mg_dof_handler.locally_owned_dofs(), dsp, MPI_COMM_WORLD, true);
-pcout << "Test2" << std::endl;
+
 
     mg_constrained_dofs.clear();
     mg_constrained_dofs.initialize(mg_dof_handler);
     mg_constrained_dofs.make_zero_boundary_constraints(mg_dof_handler, dirichlet_boundary);
-pcout << "Test3" << std::endl;
+
 
     const unsigned int n_levels = triangulation.n_global_levels();
 
@@ -1352,7 +1352,6 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 
     unsigned int this_mpi_counter = 0;
     std::vector<unsigned int> atoms_owned_by_process;
-//    std::vector<unsigned int> new_atoms_owned_by_process (number_of_atoms,400);
 
     for(unsigned int i = 0; i < number_of_atoms; ++i)
 	{
@@ -1376,122 +1375,87 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
     const unsigned int nprocs = Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
     const unsigned int myrank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
     std::vector<unsigned int> gathered_atom_list(total_num_atoms_in_all_processes);
+    std::vector<int> receive_displacements(nprocs);
 
-    // Enter the loop if one atom is owned by multiple MPI processes
-    if(total_num_atoms_in_all_processes != number_of_atoms)
+    {
+//	pcout << "total atoms in all processes " << total_num_atoms_in_all_processes << std::endl;
+	std::vector<int> receive_counts(nprocs);
+	const int my_vec_size = atoms_owned_by_process.size();
+	int ierr = MPI_Allgather(&my_vec_size, 1, MPI_INT, receive_counts.data(), 1, MPI_INT, MPI_COMM_WORLD);
+	AssertThrowMPI(ierr);
 	{
-	    pcout << "total atoms in all processes " << total_num_atoms_in_all_processes << std::endl;
-	    int *receive_counts = new int[nprocs]{};
-	    const unsigned int my_vec_size = atoms_owned_by_process.size();
-	    int ierr = MPI_Barrier(MPI_COMM_WORLD);
-	    AssertThrowMPI(ierr);
-	    int ierr2 = MPI_Allgather(&my_vec_size, 1, MPI_INT, &receive_counts[0], 1, MPI_INT, MPI_COMM_WORLD);
-	    AssertThrowMPI(ierr2);
-	    int *receive_displacements = new int[nprocs]{};
-	    if (myrank == 0)
+	    // With the 1st entry is always 0, fill other entries only
+	    int sum = 0;
+	    for(unsigned int i = 0; i < nprocs-1; i++)
 		{
-		    // With the 1st entry is always 0, fill other entries only
-		    unsigned int sum = 0;
-		    for(unsigned int i = 0; i < nprocs-1; i++)
-			{
-			    sum += receive_counts[i];
-			    receive_displacements[i+1] = sum;
-			}
-		    int ierr3 = MPI_Bcast(&receive_displacements[0], nprocs, MPI_INT, 0, MPI_COMM_WORLD);
-		    AssertThrowMPI(ierr3);
+		    sum += receive_counts[i];
+		    receive_displacements[i+1] = sum;
 		}
-	    int ierr4 = MPI_Barrier(MPI_COMM_WORLD);
-	    AssertThrowMPI(ierr4);
-
-	    for(unsigned int r = 0; r < nprocs; r++)
-		{
-		    pcout << "receive count: " << receive_counts[r] << " " << "receive displacement: " << receive_displacements[r] << std::endl;
-		}
-
-	    pcout << "Start of gather" << std::endl;
-	    int ierr5 = MPI_Gatherv(&atoms_owned_by_process[0], my_vec_size, MPI_UNSIGNED,
-		    &gathered_atom_list[0], receive_counts, receive_displacements, MPI_UNSIGNED,
-		    0, MPI_COMM_WORLD);
-	    AssertThrowMPI(ierr5);
-
-	    pcout << "gathered atom list: ";
-	    for(const auto &k : gathered_atom_list)
-		pcout << k << ", ";
-	    pcout << std::endl;
-
-	    std::vector<unsigned int> altered_gathered_list;
-	    if (myrank == 0)
-		{		    
-		    altered_gathered_list = gathered_atom_list;
-		    //find repeated atom number and replace all the 2nd occurences with 400
-		    std::unordered_set<int> s;
-		    std::replace_if(altered_gathered_list.begin(),altered_gathered_list.end(),
-				    [&](int x)->bool{
-						    return !std::get<1>(s.insert(x)); // true iff the item was already in the set
-						    },
-				    400);
-
-		    pcout << "gathered atom list after replacing of repeated values: ";
-		    for(auto it = altered_gathered_list.begin(); it != altered_gathered_list.end(); it++)
-			pcout << *it << ", ";
-		    pcout << std::endl;		    
-		}
-
-	    std::vector<unsigned int> new_atoms_owned_by_process = atoms_owned_by_process;
-	    pcout << "Begin scatter" << std::endl;
-	    int ierr6 = MPI_Scatterv(&altered_gathered_list[0], receive_counts, receive_displacements, MPI_UNSIGNED,
-		    &new_atoms_owned_by_process[0], my_vec_size, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
-	    AssertThrowMPI(ierr6);
-
-	    // Replace the old atoms list with non-repeating atoms list
-	    atoms_owned_by_process = new_atoms_owned_by_process;
-	    int ierr7 = MPI_Barrier(MPI_COMM_WORLD);
-	    AssertThrowMPI(ierr7);
-
-	    delete [] receive_counts;
-	    delete [] receive_displacements;
 	}
+//	for(unsigned int r = 0; r < nprocs; r++)
+//	  pcout << "receive count: " << receive_counts[r] << " " << "receive displacement: " << receive_displacements[r] << std::endl;
 
-    std::cout << "MPI process with rank " << Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) <<
-		 " owns atoms ";
-    for(const auto &j : atoms_owned_by_process)
-	 std::cout << j << ", ";
-    std::cout << std::endl;
+//	pcout << "Start of gather" << std::endl;
+	ierr = MPI_Allgatherv(atoms_owned_by_process.data(), my_vec_size, MPI_UNSIGNED,
+		gathered_atom_list.data(), receive_counts.data(), receive_displacements.data(), MPI_UNSIGNED,
+		MPI_COMM_WORLD);
+	AssertThrowMPI(ierr);
+
+//	pcout << "gathered atom list: ";
+//	for(const auto &k : gathered_atom_list)
+//	    pcout << k << ", ";
+//	pcout << std::endl;
+
+	{
+	    //find repeated atom number and replace all the 2nd occurences with 400
+	    std::unordered_set<unsigned int> s;
+	    std::replace_if(gathered_atom_list.begin(),gathered_atom_list.end(),
+			    [&](unsigned int x)->bool{
+					    return !std::get<1>(s.insert(x)); // true iff the item was already in the set
+					    },
+			    400);
+
+//	    pcout << "gathered atom list after replacing of repeated values: ";
+//	    for(auto it = gathered_atom_list.begin(); it != gathered_atom_list.end(); it++)
+//		pcout << *it << ", ";
+//	    pcout << std::endl;
+	}
+    }
+
+//    std::cout << "MPI process with rank " << Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) <<
+//		 " owns atoms ";
+//    for(const auto &j : atoms_owned_by_process)
+//	 std::cout << j << ", ";
+//    std::cout << std::endl;
 
     unsigned int counter = 0;
     std::vector<double> values(1);
-    for(unsigned int i = 0; i < atoms_owned_by_process.size(); ++i)
+    for(unsigned int i = receive_displacements[myrank]; i < receive_displacements[myrank]+atoms_owned_by_process.size(); ++i)
 	{
-	    const int atom_index = atoms_owned_by_process[i];
+	    const unsigned int &atom_index = gathered_atom_list[i];
 	    // Check if the atom index is not 400
 	    if(atom_index < 300)
 		{
-		    try
-		    {
-			const auto my_pair
-			= GridTools::find_active_cell_around_point (StaticMappingQ1<dim>::mapping, mg_dof_handler,
-								    this->atom_positions[atom_index]);
-			const auto cell = my_pair.first;
-			if (cell->is_locally_owned())
-			   {
-			       // Now we can find out about the point
-			       Quadrature<dim> quad(my_pair.second);
-			       FEValues<dim> fe_v(cell->get_fe(), quad, update_values);
-			       fe_v.reinit(cell);
-			       fe_v.get_function_values(final_solution, values);
+		    const auto my_pair
+		    = GridTools::find_active_cell_around_point (StaticMappingQ1<dim>::mapping, mg_dof_handler,
+								this->atom_positions[atom_index]);
+		    const auto cell = my_pair.first;
+		    if (cell->is_locally_owned())
+		       {
+			   // Now we can find out about the point
+			   Quadrature<dim> quad(my_pair.second);
+			   FEValues<dim> fe_v(cell->get_fe(), quad, update_values);
+			   fe_v.reinit(cell);
+			   fe_v.get_function_values(final_solution, values);
 
-			       fe_solution_energy_contribution += 0.5 * this->charges[i] * values[0];
-			       counter++;
-			    }
-		    }
-		    catch (const VectorTools::ExcPointNotAvailableHere &)
-		    {
-		    }
+			   fe_solution_energy_contribution += 0.5 * this->charges[i] * values[0];
+			   counter++;
+			}
 		}
 	}
 
     const unsigned int num_atoms_evaluated = Utilities::MPI::sum(counter, MPI_COMM_WORLD);
-    pcout << "Num of atoms evaluated: " << num_atoms_evaluated << std::endl;
+//    pcout << "Num of atoms evaluated: " << num_atoms_evaluated << std::endl;
     Assert(num_atoms_evaluated == number_of_atoms,
 	   ExcMessage(std::to_string(num_atoms_evaluated) + "!="+std::to_string(number_of_atoms)));
     fe_solution_energy_contribution = Utilities::MPI::sum (fe_solution_energy_contribution, MPI_COMM_WORLD);

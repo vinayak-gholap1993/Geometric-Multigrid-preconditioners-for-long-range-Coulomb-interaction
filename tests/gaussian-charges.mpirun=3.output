@@ -123,10 +123,10 @@ Threshold value for refinement:	4.8554280996e-01
 
 Total analytical electrostatic energy :   -2.0000000000e+00
 Short-ranged energy contribution :  -3.1459841410e-01
-FE solution long-ranged energy contribution :    1.1389022098e+00
+FE solution long-ranged energy contribution :    5.6945110492e-01
 Self energy contribution : 2.2567583342e+00
-Total electrostatic energy with split in short- and long-ranged : -1.4324545385e+00
-Absolute Error between both energies :	5.6754546155e-01
+Total electrostatic energy with split in short- and long-ranged : -2.0019056434e+00
+Absolute Error between both energies :	1.9056433730e-03
 
 Error in FE solution in energy norm:  2.5986556927e-01
 Cycle 5:
@@ -148,9 +148,9 @@ Threshold value for refinement:	2.8959587216e-01
 
 Total analytical electrostatic energy :   -2.0000000000e+00
 Short-ranged energy contribution :  -3.1459841410e-01
-FE solution long-ranged energy contribution :    1.1412086160e+00
+FE solution long-ranged energy contribution :    5.7060430798e-01
 Self energy contribution : 2.2567583342e+00
-Total electrostatic energy with split in short- and long-ranged : -1.4301481323e+00
-Absolute Error between both energies :	5.6985186766e-01
+Total electrostatic energy with split in short- and long-ranged : -2.0007524403e+00
+Absolute Error between both energies :	7.5244031628e-04
 
 Error in FE solution in energy norm:  2.3571188349e-01
