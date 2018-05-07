@@ -1349,7 +1349,7 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
     // 3. make sure that 1 atom is attributed only to a single process, i.e. take the one with lowest rank
     // to be the owner.
     // 4. loop over locally owned atoms and calculate...
-
+/*
     unsigned int this_mpi_counter = 0;
     std::vector<unsigned int> atoms_owned_by_process;
 
@@ -1392,8 +1392,8 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 		    receive_displacements[i+1] = sum;
 		}
 	}
-//	for(unsigned int r = 0; r < nprocs; r++)
-//	  pcout << "receive count: " << receive_counts[r] << " " << "receive displacement: " << receive_displacements[r] << std::endl;
+	for(unsigned int r = 0; r < nprocs; r++)
+	  pcout << "receive count: " << receive_counts[r] << " " << "receive displacement: " << receive_displacements[r] << std::endl;
 
 //	pcout << "Start of gather" << std::endl;
 	ierr = MPI_Allgatherv(atoms_owned_by_process.data(), my_vec_size, MPI_UNSIGNED,
@@ -1401,10 +1401,10 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 		MPI_COMM_WORLD);
 	AssertThrowMPI(ierr);
 
-//	pcout << "gathered atom list: ";
-//	for(const auto &k : gathered_atom_list)
-//	    pcout << k << ", ";
-//	pcout << std::endl;
+	pcout << "gathered atom list: ";
+	for(const auto &k : gathered_atom_list)
+	    pcout << k << ", ";
+	pcout << std::endl;
 
 	{
 	    //find repeated atom number and replace all the 2nd occurences with 400
@@ -1415,18 +1415,18 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 					    },
 			    400);
 
-//	    pcout << "gathered atom list after replacing of repeated values: ";
-//	    for(auto it = gathered_atom_list.begin(); it != gathered_atom_list.end(); it++)
-//		pcout << *it << ", ";
-//	    pcout << std::endl;
+	    pcout << "gathered atom list after replacing of repeated values: ";
+	    for(auto it = gathered_atom_list.begin(); it != gathered_atom_list.end(); it++)
+		pcout << *it << ", ";
+	    pcout << std::endl;
 	}
     }
 
-//    std::cout << "MPI process with rank " << Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) <<
-//		 " owns atoms ";
-//    for(const auto &j : atoms_owned_by_process)
-//	 std::cout << j << ", ";
-//    std::cout << std::endl;
+    std::cout << "MPI process with rank " << Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) <<
+		 " owns atoms ";
+    for(const auto &j : atoms_owned_by_process)
+	 std::cout << j << ", ";
+    std::cout << std::endl;
 
     unsigned int counter = 0;
     std::vector<double> values(1);
@@ -1459,6 +1459,60 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
     Assert(num_atoms_evaluated == number_of_atoms,
 	   ExcMessage(std::to_string(num_atoms_evaluated) + "!="+std::to_string(number_of_atoms)));
     fe_solution_energy_contribution = Utilities::MPI::sum (fe_solution_energy_contribution, MPI_COMM_WORLD);
+*/
+
+    std::vector<double> values(1);
+    std::vector<std::pair<unsigned int, double> > local_fe_contribution;
+    for(unsigned int i = 0; i < number_of_atoms; ++i)
+	{
+	    try
+	    {
+		const auto my_pair
+		= GridTools::find_active_cell_around_point (StaticMappingQ1<dim>::mapping, mg_dof_handler,
+							    this->atom_positions[i]);
+		const auto cell = my_pair.first;
+		if (cell->is_locally_owned())
+		   {
+		       // Now we can find out about the point
+		       Quadrature<dim> quad(my_pair.second);
+		       FEValues<dim> fe_v(cell->get_fe(), quad, update_values);
+		       fe_v.reinit(cell);
+		       fe_v.get_function_values(final_solution, values);
+
+		       const double local_fe_value = 0.5 * this->charges[i] * values[0];
+		       local_fe_contribution.push_back(std::make_pair(i, local_fe_value));		       
+		    }
+	    }
+	    catch (const VectorTools::ExcPointNotAvailableHere &)
+	    {
+	    }
+	}
+    // Will return a std::vector< std::vector<std::pair<> > > of size equal to nprocs
+    auto gathered_local_fe_contribution = Utilities::MPI::all_gather (MPI_COMM_WORLD, local_fe_contribution);
+
+    std::vector<bool> atom_processed (number_of_atoms, false);
+
+    //find repeated atom index and replace flag with true indicating atom index already processed for
+    // global FE energy contributuion
+    unsigned int this_counter = 0;
+    for(const auto &it : gathered_local_fe_contribution)
+    {
+	const auto local_vector = it;
+	for(const auto &iter : local_vector)
+	{
+	    const unsigned int atom_index = iter.first;
+	    const double fe_value = iter.second;
+	    if(atom_processed[atom_index] == false)
+	    {
+		fe_solution_energy_contribution += fe_value;
+		atom_processed[atom_index] = true;
+		this_counter++;
+	    }
+	}
+    }
+
+    Assert(this_counter == number_of_atoms,
+	   ExcMessage(std::to_string(this_counter) + "!="+std::to_string(number_of_atoms)));
 
     //Evaluation of self energy for I == J. Part B.3
     double self_energy_contribution = 0.0;
