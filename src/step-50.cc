@@ -1471,7 +1471,7 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 		= GridTools::find_active_cell_around_point (StaticMappingQ1<dim>::mapping, mg_dof_handler,
 							    this->atom_positions[i]);
 		const auto cell = my_pair.first;
-		if (cell->is_locally_owned())
+		if (!cell->is_artificial())
 		   {
 		       // Now we can find out about the point
 		       Quadrature<dim> quad(my_pair.second);
