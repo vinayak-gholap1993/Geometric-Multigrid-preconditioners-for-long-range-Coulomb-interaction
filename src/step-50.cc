@@ -509,6 +509,7 @@ const double LaplaceProblem<dim>::short_ranged_potential(const Point<dim> & poin
 template <int dim>
 void LaplaceProblem<dim>::compute_charge_densities()
 {
+    TimerOutput::Scope t(computing_timer, "Compute charge densities");
     this->density_values_for_each_cell.clear();
 
     FEValues<dim> fe_values (fe, this->quadrature_formula_rhs,
@@ -577,6 +578,7 @@ void LaplaceProblem<dim>::compute_charge_densities()
 template <int dim>
 void LaplaceProblem<dim>::compute_moments()
 {
+    TimerOutput::Scope t(computing_timer, "Compute dipole moments");
     FEValues<dim> fe_values (fe, this->quadrature_formula_rhs,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
@@ -1018,6 +1020,7 @@ void LaplaceProblem<dim>::solve ()
 template <int dim>
 void LaplaceProblem<dim>::estimate_error_and_mark_cells()
 {
+    TimerOutput::Scope t(computing_timer, "Estimate error and mark cells");
     Vector<float> estimated_error_per_cell (triangulation.n_active_cells());
 
     LA::MPI::Vector temp_solution;
@@ -1116,47 +1119,11 @@ void LaplaceProblem<dim>::refine_grid (const unsigned int &cycle)
     constraints.set_zero (solution);
 
 }
-/*
-template <int dim>
-class Function_Map : public Function<dim>
-{
-public:
-    Function_Map(Function<dim> & scalar_function,int selected_component,int n_components);
-    double value (const Point<dim> &p, int component) const
-    {
-        if (component == selected_component)
-            return scalar_function.gradient(p);
-        else
-            return 0.0;
-    }
-};
-
-
-template <int dim>
-void LaplaceProblem<dim>::solution_gradient()
-{
-    DoFHandler<dim> dof_vector(triangulation);
-    Vector<double> potential = solution;
-    FEFieldFunction<dim> fe_field(dof_vector,potential);
-
-    QGauss<dim>  quadrature(1+degree);
-    Vector<double> grad_solution;
-
-    VectorFunctionFromScalarFunctionObject func_map(std_cxx1x::bind(&FEFieldFunction::gradient,
-                                                                    fe_field,
-                                                                    std_cxx1x::_1), 0, 3);
-
-    VectorTools::project(dof_vector, constraints,quadrature,fe_field,grad_solution );
-
-}
-
-*/
-
-
 
 template <int dim>
 void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 {
+    TimerOutput::Scope t(computing_timer, "Output results");
     DataOut<dim> data_out;
 
     LA::MPI::Vector relevant_solution;
@@ -1349,117 +1316,6 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
     // 3. make sure that 1 atom is attributed only to a single process, i.e. take the one with lowest rank
     // to be the owner.
     // 4. loop over locally owned atoms and calculate...
-/*
-    unsigned int this_mpi_counter = 0;
-    std::vector<unsigned int> atoms_owned_by_process;
-
-    for(unsigned int i = 0; i < number_of_atoms; ++i)
-	{
-	    try
-	    {
-		const auto my_pair
-		= GridTools::find_active_cell_around_point (StaticMappingQ1<dim>::mapping, mg_dof_handler, this->atom_positions[i]);
-		const auto cell = my_pair.first;
-
-		if (cell->is_locally_owned())
-		   {
-		       this_mpi_counter++;
-		       atoms_owned_by_process.push_back(i);
-		    }
-	    }
-	    catch (const VectorTools::ExcPointNotAvailableHere &)
-	    {
-	    }
-	}
-    const unsigned int total_num_atoms_in_all_processes = Utilities::MPI::sum(atoms_owned_by_process.size(), MPI_COMM_WORLD);
-    const unsigned int nprocs = Utilities::MPI::n_mpi_processes(MPI_COMM_WORLD);
-    const unsigned int myrank = Utilities::MPI::this_mpi_process(MPI_COMM_WORLD);
-    std::vector<unsigned int> gathered_atom_list(total_num_atoms_in_all_processes);
-    std::vector<int> receive_displacements(nprocs);
-
-    {
-//	pcout << "total atoms in all processes " << total_num_atoms_in_all_processes << std::endl;
-	std::vector<int> receive_counts(nprocs);
-	const int my_vec_size = atoms_owned_by_process.size();
-	int ierr = MPI_Allgather(&my_vec_size, 1, MPI_INT, receive_counts.data(), 1, MPI_INT, MPI_COMM_WORLD);
-	AssertThrowMPI(ierr);
-	{
-	    // With the 1st entry is always 0, fill other entries only
-	    int sum = 0;
-	    for(unsigned int i = 0; i < nprocs-1; i++)
-		{
-		    sum += receive_counts[i];
-		    receive_displacements[i+1] = sum;
-		}
-	}
-	for(unsigned int r = 0; r < nprocs; r++)
-	  pcout << "receive count: " << receive_counts[r] << " " << "receive displacement: " << receive_displacements[r] << std::endl;
-
-//	pcout << "Start of gather" << std::endl;
-	ierr = MPI_Allgatherv(atoms_owned_by_process.data(), my_vec_size, MPI_UNSIGNED,
-		gathered_atom_list.data(), receive_counts.data(), receive_displacements.data(), MPI_UNSIGNED,
-		MPI_COMM_WORLD);
-	AssertThrowMPI(ierr);
-
-	pcout << "gathered atom list: ";
-	for(const auto &k : gathered_atom_list)
-	    pcout << k << ", ";
-	pcout << std::endl;
-
-	{
-	    //find repeated atom number and replace all the 2nd occurences with 400
-	    std::unordered_set<unsigned int> s;
-	    std::replace_if(gathered_atom_list.begin(),gathered_atom_list.end(),
-			    [&](unsigned int x)->bool{
-					    return !std::get<1>(s.insert(x)); // true iff the item was already in the set
-					    },
-			    400);
-
-	    pcout << "gathered atom list after replacing of repeated values: ";
-	    for(auto it = gathered_atom_list.begin(); it != gathered_atom_list.end(); it++)
-		pcout << *it << ", ";
-	    pcout << std::endl;
-	}
-    }
-
-    std::cout << "MPI process with rank " << Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) <<
-		 " owns atoms ";
-    for(const auto &j : atoms_owned_by_process)
-	 std::cout << j << ", ";
-    std::cout << std::endl;
-
-    unsigned int counter = 0;
-    std::vector<double> values(1);
-    for(unsigned int i = receive_displacements[myrank]; i < receive_displacements[myrank]+atoms_owned_by_process.size(); ++i)
-	{
-	    const unsigned int &atom_index = gathered_atom_list[i];
-	    // Check if the atom index is not 400
-	    if(atom_index < 300)
-		{
-		    const auto my_pair
-		    = GridTools::find_active_cell_around_point (StaticMappingQ1<dim>::mapping, mg_dof_handler,
-								this->atom_positions[atom_index]);
-		    const auto cell = my_pair.first;
-		    if (cell->is_locally_owned())
-		       {
-			   // Now we can find out about the point
-			   Quadrature<dim> quad(my_pair.second);
-			   FEValues<dim> fe_v(cell->get_fe(), quad, update_values);
-			   fe_v.reinit(cell);
-			   fe_v.get_function_values(final_solution, values);
-
-			   fe_solution_energy_contribution += 0.5 * this->charges[i] * values[0];
-			   counter++;
-			}
-		}
-	}
-
-    const unsigned int num_atoms_evaluated = Utilities::MPI::sum(counter, MPI_COMM_WORLD);
-//    pcout << "Num of atoms evaluated: " << num_atoms_evaluated << std::endl;
-    Assert(num_atoms_evaluated == number_of_atoms,
-	   ExcMessage(std::to_string(num_atoms_evaluated) + "!="+std::to_string(number_of_atoms)));
-    fe_solution_energy_contribution = Utilities::MPI::sum (fe_solution_energy_contribution, MPI_COMM_WORLD);
-*/
 
     std::vector<double> values(1);
     std::vector<std::pair<unsigned int, double> > local_fe_contribution;
@@ -1530,6 +1386,9 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
     pcout << "Total electrostatic energy with split in short- and long-ranged : " << total_energy_with_split << std::endl;
     pcout << "Absolute Error between both energies :	" << std::abs(std::abs(analytical_energy) -
 								      std::abs(total_energy_with_split)) << "\n" << std::endl;
+    pcout << "Relative Error in total electrostatic energy :	" << std::abs( (std::abs(analytical_energy) -
+										std::abs(total_energy_with_split)) / analytical_energy )
+	  << std::endl;
 
 }
 
@@ -1537,6 +1396,7 @@ void LaplaceProblem<dim>::postprocess_electrostatic_energy()
 template <int dim>
 void LaplaceProblem<dim>::postprocess_error_in_energy_norm()
 {
+    TimerOutput::Scope t(computing_timer, "Postprocess FE error");
     FEValues<dim> fe_values (fe, this->quadrature_formula_laplace,
 			     update_values    |  update_gradients |
 			     update_quadrature_points  |  update_JxW_values);
@@ -1662,15 +1522,11 @@ void LaplaceProblem<dim>::run ()
 
 	solve ();
 
-        //solution_gradient();
 	estimate_error_and_mark_cells();
 	output_results (cycle);
 	if(number_of_atoms < 300)
-	    {
-		postprocess_electrostatic_energy();
-		postprocess_error_in_energy_norm();
-	    }
-
+	    postprocess_electrostatic_eergy();
+	postprocess_error_in_energy_norm();
 
 	timer.stop();
 //	pcout << "   Elapsed wall time for refinement cycle "<<cycle <<" : " << timer.wall_time() << " seconds."<<std::endl;

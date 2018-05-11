@@ -126,7 +126,6 @@ protected:
     void solve ();
     void estimate_error_and_mark_cells();
     void refine_grid (const unsigned int &);
-    //void solution_gradient();
     void read_lammps_input_file(const std::string& filename);
     void output_results (const unsigned int cycle) const;
     void rhs_assembly_optimization();
