@@ -1122,8 +1122,7 @@ void LaplaceProblem<dim>::refine_grid (const unsigned int &cycle)
 
 template <int dim>
 void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
-{
-    TimerOutput::Scope t(computing_timer, "Output results");
+{    
     DataOut<dim> data_out;
 
     LA::MPI::Vector relevant_solution;
@@ -1525,7 +1524,7 @@ void LaplaceProblem<dim>::run ()
 	estimate_error_and_mark_cells();
 	output_results (cycle);
 	if(number_of_atoms < 300)
-	    postprocess_electrostatic_eergy();
+	    postprocess_electrostatic_energy();
 	postprocess_error_in_energy_norm();
 
 	timer.stop();
