@@ -1121,8 +1121,35 @@ void LaplaceProblem<dim>::refine_grid (const unsigned int &cycle)
 }
 
 template <int dim>
+class GradientPostprocessor : public DataPostprocessorVector<dim>
+{
+public:
+  GradientPostprocessor()
+    :
+      DataPostprocessorVector<dim> ("grad_phi",
+                                    update_gradients)
+  {}
+
+  virtual void
+  evaluate_scalar_field (const DataPostprocessorInputs::Scalar<dim> &input_data,
+                         std::vector<Vector<double> > &computed_quantities) const
+  {
+    AssertDimension (input_data.solution_gradients.size(),
+                     computed_quantities.size());
+
+    for (unsigned int p=0; p < input_data.solution_gradients.size(); ++p)
+      {
+        AssertDimension (computed_quantities[p].size(), dim);
+        for (unsigned int d=0; d < dim; ++d)
+          computed_quantities[p][d] = -input_data.solution_gradients[p][d];
+      }
+  }
+};
+
+template <int dim>
 void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
-{    
+{
+    GradientPostprocessor<dim> gradient_postprocessor;
     DataOut<dim> data_out;
 
     LA::MPI::Vector relevant_solution;
@@ -1131,6 +1158,7 @@ void LaplaceProblem<dim>::output_results (const unsigned int cycle) const
 
     data_out.attach_dof_handler (mg_dof_handler);
     data_out.add_data_vector (relevant_solution, "solution");
+    data_out.add_data_vector (relevant_solution, gradient_postprocessor);
 
     LA::MPI::Vector analytical_sol_ghost;
 

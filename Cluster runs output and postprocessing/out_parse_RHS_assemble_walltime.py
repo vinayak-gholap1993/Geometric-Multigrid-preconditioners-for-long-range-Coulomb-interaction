@@ -23,7 +23,7 @@ fout = open(output_file, 'w')
 
 pattern = r'[+\-]?(?:[0-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)?'
 
-fout.write('# Natoms | RHS assembly walltime\n')
+fout.write('# Natoms | RHS assembly walltime | Compute charge densities\n')
 cycle = -1
 natoms = -1
 for line in fin:
@@ -36,7 +36,7 @@ for line in fin:
             natoms = re.findall(pattern, line)[0]
 	    fout.write('\n')
 	    fout.write('{0}'.format(natoms))                
-        if 'RHS assembly' in line:
+        if 'Assemble system' in line:
 	    if not 'RHS assembly optimization' in line:
       	        ncells = re.findall(pattern, line)[0]
 	        #fout.write('\t{0}'.format(ncells))
@@ -50,6 +50,19 @@ for line in fin:
 			#fout.write('{0}'.format(count))
 			if count == 2:
                             fout.write('\t{0}'.format(item))
+	if 'Compute charge densities' in line:
+      	        nc = re.findall(pattern, line)[0]
+	        #fout.write('\t{0}'.format(ncells))
+		line_striped2 = line.lstrip()
+		count2 = 0
+                # line does not start with a number and we already parsed Cycle line:
+                if not line_striped2[0].isdigit():
+                    # now add all numbers we can find in the line:
+                    for item2 in re.findall(pattern, line):
+			count2 = count2 + 1
+			#fout.write('{0}'.format(count))
+			if count2 == 2:
+                            fout.write('\t{0}'.format(item2))
 	    #fout.write('\n')
         
         if 'Starting epilogue' in line:
