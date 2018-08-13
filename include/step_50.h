@@ -31,6 +31,7 @@
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/tensor.h>
 #include <deal.II/base/symmetric_tensor.h>
+#include <deal.II/base/function_spherical.h>
 
 #include <deal.II/lac/constraint_matrix.h>
 #include <deal.II/lac/vector.h>
@@ -84,9 +85,9 @@
 namespace LA
 {
 #ifdef USE_PETSC_LA
-using namespace dealii::LinearAlgebraPETSc;
+  using namespace dealii::LinearAlgebraPETSc;
 #else
-using namespace dealii::LinearAlgebraTrilinos;
+  using namespace dealii::LinearAlgebraTrilinos;
 #endif
 }
 
@@ -105,27 +106,27 @@ using namespace dealii;
 
 namespace Step50
 {
-using namespace dealii;
+  using namespace dealii;
 
-template <int dim>
-class LaplaceProblem
-{
-public:
+  template <int dim>
+  class LaplaceProblem
+  {
+  public:
     LaplaceProblem (const unsigned int , ParameterHandler &, const std::string &, const std::string &, const std::string &,
-		    const double &, const double &, const double &, const unsigned int &, const unsigned int &, const unsigned int &,
-                    const double &, const double &,
-		    const bool &, const bool &, const bool &, const bool &, const bool &, const bool &);
+                    const std::string &, const double &, const double &, const double &, const unsigned int &,
+                    const unsigned int &, const unsigned int &, const double &, const double &,
+                    const bool &, const bool &, const bool &, const bool &, const bool &, const unsigned int &);
     ~LaplaceProblem();
     void run ();
 
-protected:
+  protected:
     void setup_system (const unsigned int &);
     void assemble_system ();
     void assemble_multigrid ();
     void solve ();
+    void estimate_error_and_mark_cells();
     void refine_grid (const unsigned int &);
-    //void solution_gradient();
-    void read_lammps_input_file(const std::string& filename);
+    void read_lammps_input_file(const std::string &filename);
     void output_results (const unsigned int cycle) const;
     void rhs_assembly_optimization();
     void grid_output_debug(const unsigned int );
@@ -136,10 +137,11 @@ protected:
     void prepare_for_coarsening_and_refinement ();
     void project_cell_data();
     void postprocess_electrostatic_energy();
-    double long_ranged_potential(const Point<dim> & , const Point<dim> &, const double &) const;
-    const double short_ranged_potential(const Point<dim> & , const Point<dim> &, const double &);
+    double long_ranged_potential(const Point<dim> &, const Point<dim> &, const double &) const;
+    const double short_ranged_potential(const Point<dim> &, const Point<dim> &, const double &);
     void compute_charge_densities();
     void compute_moments();
+    void postprocess_error_in_energy_norm();
 
     ConditionalOStream                        pcout;
     TimerOutput computing_timer;
@@ -172,16 +174,17 @@ protected:
     const unsigned int number_of_global_refinement , number_of_adaptive_refinement_cycles;
     const double domain_size_left , domain_size_right, mesh_size_h;
     const unsigned int repetitions_for_vacuum;
-    const std::string Problemtype, PreconditionerType, LammpsInputFilename;
+    const std::string Problemtype, PreconditionerType, LammpsInputFilename, Boundary_conditions;
     std::shared_ptr<Function<dim>> rhs_func;
     std::shared_ptr<Function<dim>> coeff_func;
+    std::unique_ptr<Function<dim>> exact_solution;
     bool lammpsinput;
-    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support, flag_rhs_assembly, flag_boundary_conditions,
-		flag_output_time;
+    const bool flag_analytical_solution, flag_rhs_field, flag_atoms_support,
+          flag_rhs_assembly, flag_output_time;
     unsigned int number_of_atoms;
     std::vector<Point<dim> > atom_positions;
-    unsigned int * atom_types;
-    double * charges;
+    std::vector<unsigned int> atom_types;
+    std::vector<double> charges;
     const double r_c, nonzero_density_radius_parameter;
 
     typedef typename parallel::distributed::Triangulation<dim>::cell_iterator cell_it;
@@ -191,172 +194,195 @@ protected:
     Tensor<1, dim, double> dipole_moment;
     Tensor<2, dim, double> quadrupole_moment;
     std::map<cell_it, std::vector<double> > density_values_for_each_cell;
+    const unsigned int quadrature_degree_rhs;
+    Vector<float> error_per_cell;
+    const QGauss<dim>  quadrature_formula_laplace;
+    const QGauss<dim>  quadrature_formula_rhs;
 
-};
+  };
 }
 
 
 class ParameterReader: public Subscriptor
 {
 public:
-    ParameterReader(ParameterHandler &);
-    void read_parameters(const std::string &);
-    void declare_parameters();
+  ParameterReader(ParameterHandler &);
+  void read_parameters(const std::string &);
+  void declare_parameters();
 private:
-    ParameterHandler &prm;
+  ParameterHandler &prm;
 };
 
 namespace Step16
 {
-using namespace dealii;
+  using namespace dealii;
 
-template <int dim>
-class RightHandSide : public Function<dim>
-{
-public:
+  template <int dim>
+  class RightHandSide : public Function<dim>
+  {
+  public:
     RightHandSide():Function<dim>() {}
     virtual double value (const Point<dim>   &p,
                           const unsigned int  /*component = 0*/) const;
-};
+  };
 
-template <int dim>
-class Coefficient : public Function<dim>
-{
-public:
+  template <int dim>
+  class Coefficient : public Function<dim>
+  {
+  public:
     Coefficient () : Function<dim>() {}
 
     virtual double value (const Point<dim>   &p,
                           const unsigned int  component = 0) const;
-};
+  };
 
-template <int dim>
-double RightHandSide<dim>::value (const Point<dim> &/*p*/,
-                                  const unsigned int /*component = 0*/) const
-{
+  template <int dim>
+  double RightHandSide<dim>::value (const Point<dim> &/*p*/,
+                                    const unsigned int /*component = 0*/) const
+  {
     return 10.0;
-}
+  }
 
-template <int dim>
-double Coefficient<dim>::value (const Point<dim> &p,
-                                const unsigned int) const
-{
+  template <int dim>
+  double Coefficient<dim>::value (const Point<dim> &p,
+                                  const unsigned int) const
+  {
     if (p.square() < 0.5*0.5)
-        return 5;
+      return 5;
     else
-        return 1;
-}
+      return 1;
+  }
 }
 
 // Test for two charges at origin with neutral charge system i.e. Homogeneous
 // Dirichlet B.C.
 namespace GaussianCharges
 {
-using namespace dealii;
+  using namespace dealii;
 
-template <int dim>
-class RightHandSide : public Function<dim>
-{
-public:
+  template <int dim>
+  class RightHandSide : public Function<dim>
+  {
+  public:
     const double r_c;
     RightHandSide(const double &_r_c): Function<dim>(),r_c(_r_c) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
+  };
 
-template <int dim>
-class Coefficient : public Function<dim>
-{
-public:
+  template <int dim>
+  class Coefficient : public Function<dim>
+  {
+  public:
     Coefficient () : Function<dim>() {}
 
     virtual double value (const Point<dim>   &p,
                           const unsigned int  component = 0) const;
-};
+  };
 
 //Added analytical solution output to the mesh
 //To visualise the required domain size to ensure correct DBC assumption
-template <int dim>
-class Analytical_Solution : public Function<dim>
-{
-public:
-    //Add atom_posn and atom_charge and use them in value
-    const double r_c;
-    const Point<dim> atom_position;
-    const double charge;
-    Analytical_Solution(const double &_r_c, const Point<dim> &_pos, const double &_charge)
-	: Function<dim>(),r_c(_r_c),atom_position(_pos),charge(_charge) {}
+  template <int dim>
+  class Analytical_Solution : public Function<dim>
+  {
+  public:
+    const double &r_c;
+    const std::vector<Point<dim> > &atom_positions;
+    const std::vector<double> &charges;
+    Analytical_Solution(const double &_r_c, const std::vector<Point<dim> > &_pos, const std::vector<double> &_charges)
+      : Function<dim>(),r_c(_r_c),atom_positions(_pos),charges(_charges) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
+    virtual Tensor<1, dim, double> gradient (const Point<dim>   &p,  const unsigned int  component = 0) const;
+  };
 
-template <int dim>
-class Analytical_Solution_without_lammps : public Function<dim>
-{
-public:
+  template <int dim>
+  class Analytical_Solution_without_lammps : public Function<dim>
+  {
+  public:
     const double r_c;
     Analytical_Solution_without_lammps(const double &_r_c): Function<dim>(), r_c(_r_c) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
+  };
 
-// Non-zero DBC for Hartree potential by employment of quadrupole expansion
-template <int dim>
-class NonZeroDBC : public Function<dim>
-{
-public:
+// Non-zero DBC for potential by employment of quadrupole expansion
+  template <int dim>
+  class NonZeroDBC : public Function<dim>
+  {
+  public:
     const Point<dim> x0;
     const Tensor<1, dim, double> p0;
     const Tensor<2, dim, double> Q0;
 
     NonZeroDBC(const Point<dim> &x0_,
-	       const Tensor<1, dim, double> &p0_,
-	       const Tensor<2, dim, double> &Q0_): Function<dim>(),x0(x0_), p0(p0_), Q0(Q0_){}
+               const Tensor<1, dim, double> &p0_,
+               const Tensor<2, dim, double> &Q0_): Function<dim>(),x0(x0_), p0(p0_), Q0(Q0_) {}
     virtual double value (const Point<dim>   &p,  const unsigned int  /*component = 0*/) const;
-};
+  };
 
-template <int dim>
-double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
-{
+  template <int dim>
+  double RightHandSide<dim>::value (const Point<dim> &p,const unsigned int /*component = 0*/) const
+  {
     const double r_c_squared_inverse = 1.0 / (r_c * r_c);
     const double radial_distance_squared = p.square();  // r^2 = r_x^2 + r_y^2+ r_z^2
     const double constant_value = radial_distance_squared * r_c_squared_inverse;
 
     return (8.0 * exp(-4.0 * constant_value ) - exp(-constant_value))/(std::pow(r_c,3) * std::pow(numbers::PI, 1.5)) ;
-}
+  }
 
-template <int dim>
-double Coefficient<dim>::value (const Point<dim> &,
-                                const unsigned int) const
-{
+  template <int dim>
+  double Coefficient<dim>::value (const Point<dim> &,
+                                  const unsigned int) const
+  {
     return 1;
-}
+  }
 
-template <int dim>
-double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) const
-{
-    // Add the distance between atom position and point
-    // Multiplied by the charge value. check V_I^L
-    // This will be the analytical sol for single atom
+  template <int dim>
+  double Analytical_Solution<dim>::value(const Point<dim> &p, const unsigned int) const
+  {
+    Assert(atom_positions.size() == charges.size(), ExcInternalError());
+    double return_value = 0.0;
+    const double inv_constant = 1.0 / (std::sqrt(numbers::PI) * r_c);
+    for (unsigned int i = 0; i < charges.size(); ++i)
+      {
+        const double radial_distance = atom_positions[i].distance(p);
+        if (radial_distance < 1e-10)
+          return_value += charges[i] * 2.0 * inv_constant;
+        else
+          return_value += charges[i] * (erf(radial_distance / r_c)/ radial_distance);
+      }
+    return return_value;
+  }
 
-    const double radial_distance = atom_position.distance(p);
-    if(radial_distance < 1e-10)
-	return charge * 2.0 / (std::sqrt(numbers::PI) * r_c);
-    else
-	return charge * (erf(radial_distance / r_c)/ radial_distance);
-}
+  template <int dim>
+  Tensor<1, dim, double> Analytical_Solution<dim>::gradient(const Point<dim> &p, const unsigned int) const
+  {
+    Assert(atom_positions.size() == charges.size(), ExcInternalError());
+    Tensor<1, dim, double> return_value;
+    const double inv_constant = 1.0 / (std::sqrt(numbers::PI) * r_c);
+    for (unsigned int i = 0; i < charges.size(); ++i)
+      {
+        const double radial_distance = atom_positions[i].distance(p);
+        const Tensor <1, dim> r_direction = (p - atom_positions[i])/radial_distance;
+        return_value += charges[i] * ( ((2.0 * radial_distance * std::exp(-std::pow((radial_distance / r_c),2)) * inv_constant) -
+                                        erf(radial_distance / r_c)) / (std::pow(radial_distance,2)) )* r_direction;
+      }
+    return return_value;
+  }
 
-template <int dim>
-double Analytical_Solution_without_lammps<dim>::value(const Point<dim> &p, const unsigned int) const
-{
+  template <int dim>
+  double Analytical_Solution_without_lammps<dim>::value(const Point<dim> &p, const unsigned int) const
+  {
     const double radial_distance = std::sqrt(p.square());
     return (erf(2.0 * radial_distance / r_c) - erf(radial_distance / r_c)) / (4.0 * numbers::PI *radial_distance) ;
-}
+  }
 
-template <int dim>
-double NonZeroDBC<dim>::value(const Point<dim> &p, const unsigned int) const
-{
+  template <int dim>
+  double NonZeroDBC<dim>::value(const Point<dim> &p, const unsigned int) const
+  {
     const Tensor<1, dim, double> x_diff = p - x0;
     const double x_diff_norm = x_diff.norm();
     const auto x_Q_x = contract3(x_diff, Q0, x_diff);
     return (p0 * x_diff) / (std::pow(x_diff_norm,3)) + (0.5 * x_Q_x) / (std::pow(x_diff_norm,5));
-}
+  }
 }
 
 /*
