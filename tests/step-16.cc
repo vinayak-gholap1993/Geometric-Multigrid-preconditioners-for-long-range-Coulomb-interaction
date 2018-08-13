@@ -49,18 +49,12 @@ void check ()
   unsigned int number_of_global_refinement =prm.get_integer("Number of global refinement");
   double domain_size_left     = prm.get_double ("Domain limit left");
   double domain_size_right     = prm.get_double ("Domain limit right");
-  double mesh_size_h = prm.get_double ("Mesh size");
-  unsigned int repetitions_for_vacuum = prm.get_integer ("Vacuum repetitions");
   prm.leave_subsection ();
 
   prm.enter_subsection ("Misc");
   unsigned int number_of_adaptive_refinement_cycles      = prm.get_integer ("Number of Adaptive Refinement");
   double r_c = prm.get_double ("smoothing length");
   double nonzero_density_radius_parameter = prm.get_double("Nonzero Density radius parameter around each charge");
-  bool flag_analytical_solution = prm.get_bool ("Output and calculation of Analytical solution");
-  bool flag_rhs_field = prm.get_bool ("Output of RHS field");
-  bool flag_atoms_support = prm.get_bool ("Output of support of each atom");
-  bool flag_rhs_assembly = prm.get_bool ("Flag for RHS evaluation optimization");
   prm.leave_subsection ();
 
   const unsigned int Degree = prm.get_integer("Polynomial degree");
@@ -71,7 +65,7 @@ void check ()
 
   prm.enter_subsection("Problem Selection");
   std::string Problemtype= (prm.get("Problem"));
-  const unsigned int d = prm.get_integer("Dimension");
+  const unsigned int d = prm.get_integer("Dimension");    // set default to two in parameter class
   prm.leave_subsection();
 
   prm.enter_subsection("Lammps data");
@@ -106,6 +100,9 @@ void check ()
 
 int main (int argc, char *argv[])
 {
+//  std::ofstream logfile("output");
+//  deallog.attach(logfile);
+//  deallog.threshold_double(1.e-10);
 
   dealii::Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
 
