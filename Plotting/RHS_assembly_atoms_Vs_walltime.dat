@@ -1,0 +1,15 @@
+#Here plot is number of atoms Vs wall clock time for (RHS assembly + Compute charge denisty) 
+#Benchmark done on 20 MPI cores
+#Run with RELEASE mode
+
+NumOfAtoms	WithoutSparsity	WithSparsity
+2	3.494E+01
+8	9.901E+01
+216	2.898E+03
+1000	2.547E+04
+2744	-	3.723E+03	
+8000	-	2.312E+03
+
+
+
+

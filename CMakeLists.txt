@@ -15,8 +15,9 @@ SET(TARGET "step-50")
 # or switch altogether to the large project CMakeLists.txt file discussed
 # in the "CMake in user projects" page accessible from the "User info"
 # page of the documentation.
-#FILE(GLOB_RECURSE TARGET_SRC  "src/main.cc" "src/${TARGET}.cc")
-#SET(TARGET_SRC  ${TARGET}.cc  main.cc)
+#SET(TARGET_SRC
+#  ${TARGET}.cc
+#  )
 
 # Define the output that should be cleaned:
 SET(CLEAN_UP_FILES *.vtu *.pvtu *.visit)
@@ -24,8 +25,8 @@ SET(CLEAN_UP_FILES *.vtu *.pvtu *.visit)
 # Usually, you will not need to modify anything beyond this point...
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
-
-FIND_PACKAGE(deal.II 8.5.0 QUIET
+#deal.II 8.5.0 QUIET
+FIND_PACKAGE(deal.II 9.0.0 REQUIRED
   HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
   )
 IF(NOT ${deal.II_FOUND})

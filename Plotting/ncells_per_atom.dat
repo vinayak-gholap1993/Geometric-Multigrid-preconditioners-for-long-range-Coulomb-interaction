@@ -1,0 +1,11 @@
+#Here plot is number of atoms Vs number of active cells per atom for each refinement cycle 
+#Benchmark done on 20 MPI cores of single node
+#Run with RELEASE mode and using flags for output_results
+
+NumOfAtoms	CoarseInputMesh	RefCycle1	RefCycle2	RefCycle3	RefCycle4
+8	85184	85744	87648	91344	99464
+216	140608	141168	145480	153488	172472
+1000	216000	216560	222552	233584	253296
+2744	314432	314992	323000	337392	362144
+8000	512000	512560	523592	543024	576428
+64000	1728000	1728560	1749672	1785904	1849296

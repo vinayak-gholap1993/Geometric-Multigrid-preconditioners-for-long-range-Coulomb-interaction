@@ -1,0 +1,71 @@
+Problem type is:   GaussianCharges
+Preconditioner :    GMG
+Dimension:	2
+Number of atoms: 3
+Cycle 0:
+   Number of active cells:       4
+   Number of degrees of freedom: 9 (by level: 4, 9)
+   Starting value 55.719772
+   CG converged in 1 iterations.
+   Convergence value 7.105427e-15
+   L1 solution norm 2.0894914315e+01
+   L2 solution norm 2.0894914315e+01
+   LInfinity solution norm 2.0894914315e+01
+Cycle 1:
+cell with center 2.5000000000e-01 2.5000000000e-01 has 2 values:
+ 0 1
+cell with center 7.5000000000e-01 2.5000000000e-01 has 1 values:
+ 1
+cell with center 2.5000000000e-01 7.5000000000e-01 has 2 values:
+ 0 1
+cell with center 7.5000000000e-01 7.5000000000e-01 has 2 values:
+ 1 2
+   Number of active cells:       16
+   Number of degrees of freedom: 25 (by level: 4, 9, 25)
+   Starting value 40.0586631306
+   CG converged in 5 iterations.
+   Convergence value 2.7677939697e-07
+   L1 solution norm 7.2011119144e+01
+   L2 solution norm 2.7992422212e+01
+   LInfinity solution norm 1.9159572683e+01
+Cycle 2:
+cell with center 1.2500000000e-01 1.2500000000e-01 has 2 values:
+ 0 1
+cell with center 3.7500000000e-01 1.2500000000e-01 has 2 values:
+ 0 1
+cell with center 1.2500000000e-01 3.7500000000e-01 has 2 values:
+ 0 1
+cell with center 3.7500000000e-01 3.7500000000e-01 has 2 values:
+ 0 1
+cell with center 6.2500000000e-01 1.2500000000e-01 has 1 values:
+ 1
+cell with center 8.7500000000e-01 1.2500000000e-01 has 1 values:
+ 1
+cell with center 6.2500000000e-01 3.7500000000e-01 has 1 values:
+ 1
+cell with center 8.7500000000e-01 3.7500000000e-01 has 1 values:
+ 1
+cell with center 1.2500000000e-01 6.2500000000e-01 has 2 values:
+ 0 1
+cell with center 3.7500000000e-01 6.2500000000e-01 has 2 values:
+ 0 1
+cell with center 1.2500000000e-01 8.7500000000e-01 has 2 values:
+ 0 1
+cell with center 3.7500000000e-01 8.7500000000e-01 has 2 values:
+ 0 1
+cell with center 6.2500000000e-01 6.2500000000e-01 has 2 values:
+ 1 2
+cell with center 8.7500000000e-01 6.2500000000e-01 has 2 values:
+ 1 2
+cell with center 6.2500000000e-01 8.7500000000e-01 has 2 values:
+ 1 2
+cell with center 8.7500000000e-01 8.7500000000e-01 has 2 values:
+ 1 2
+   Number of active cells:       28
+   Number of degrees of freedom: 41 (by level: 4, 9, 25, 25)
+   Starting value 29.5832976385
+   CG converged in 6 iterations.
+   Convergence value 5.5748938531e-08
+   L1 solution norm 1.7343888022e+02
+   L2 solution norm 4.6671643239e+01
+   LInfinity solution norm 2.1397846992e+01

@@ -1,0 +1,10 @@
+# Run for 20 MPI processes using 5 nodes
+# Total solution times with  and without rhs optim
+
+NumOfAtoms	WithoutRHSOptim	WithRHSOptim	ExpectedLinearScaling
+2	7.1878772513e+02	7.5297327247e+02
+8	1.0325532178e+03	1.0497780640e+03
+216	7.4345532887e+03	2.9374685834e+03
+1000	3.6801988379e+04	6.7867957248e+03
+2744	86400	5.0048129335e+04
+8000	-	6.9838840641e+04

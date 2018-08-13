@@ -4,25 +4,49 @@
 
 subsection Geometry	
 	# The uniform global mesh refinement on the Domain in the power of 4
-	set Number of global refinement = 4
+	set Number of global refinement = 0
 
 	#Left limit of domain
-	set Domain limit left = -2.5
+	set Domain limit left = 0
 
 	#Right limit of domain
-	set Domain limit right = 2.5
+	set Domain limit right = 1
+
+	#Mesh size for initial domain
+	set Mesh size = 0.25
+
+	#Number of repetitions for vacuum on each side in terms of 2 * Mesh size
+	set Vacuum repetitions = 10 
 end
 
 subsection Misc
 
 	# Number of Adaptive refinement cycles to be done
-	set Number of Adaptive Refinement = 8
+	set Number of Adaptive Refinement = 4
 
 	#Set the smoothing length parameter for each Gaussian atom charge
 	set smoothing length = 0.5
 
 	#Set the parameter to localize the density around each charge where it is nonzero
-	set Nonzero Density radius parameter around each charge =  3
+	set Nonzero Density radius parameter around each charge =  3.5
+
+	#Set flag for whether to calculate and output the analytical solution
+	set Output and calculation of Analytical solution = false
+
+	#Set flag for whether to output the RHS field
+	set Output of RHS field = false
+
+	#Set flag for whether to output the support of each atom
+	set Output of support of each atom = false
+
+	#Set flag for whether to evaluate the RHS field with local optimization
+	set Flag for RHS evaluation optimization = true
+
+	#Number of quadrature points for RHS function (total points = degree + these points)
+	set Quadrature points for RHS function = 1
+
+	#Set flag for whether to output the time summary
+	set Output time summary table = false
 end
 
 # Polynomial degree of finite elements
@@ -32,15 +56,18 @@ end
 # preconditioners, problem type and solver input variables
 
 subsection Solver input data
-	set Preconditioner = GMG
+	set Preconditioner = GMG 
 end
 
 subsection Problem Selection
 	set Problem = GaussianCharges
 	set Dimension = 3
+
+	#Selection between Homogeneous, Inhomogeneous or Exact dirichlet boundary condtions
+	set Boundary conditions selection = Inhomogeneous
 end	
 
 subsection Lammps data
-	set Lammps input file = atom_2.data
+	set Lammps input file = atom_n1_2.data
 end
 

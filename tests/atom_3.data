@@ -1,6 +1,6 @@
 LAMMPS Description
 
-     2  atoms
+     3  atoms
      0  bonds
      0  angles
      0  dihedrals
@@ -19,5 +19,6 @@ Masses
 
 Atoms # full
 
-1 1 1 1.0 0.0 0.0 0.0
-2 2 2 -1.0 0.5 0.0 0.0
+1 1 1 1.0 0.0 0.85 0
+2 2 2 -1.0 0.5 0.6 0
+3 3 1 1.0 1 1 0
