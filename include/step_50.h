@@ -402,4 +402,3 @@ namespace YetAnotherProblem
 
 
 #endif // STEP_50_H
-

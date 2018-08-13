@@ -1,0 +1,49 @@
+Problem type is:   Step16
+
+Reading of Lammps input file implemented for 3D only
+
+Cycle 0:
+   Number of active cells:       256
+   Number of degrees of freedom: 289 (by level: 4, 9, 25, 81, 289)
+   Starting value 0.585938
+   CG converged in 7 iterations.
+   Convergence value 4.582e-09
+   L1 solution norm 62.0442
+   L2 solution norm 4.75978
+   LInfinity solution norm 0.572697
+Cycle 1:
+   Number of active cells:       418
+   Number of degrees of freedom: 495 (by level: 4, 9, 25, 81, 289, 305)
+   Starting value 0.533937
+   CG converged in 10 iterations.
+   Convergence value 7.40543e-10
+   L1 solution norm 93.2994
+   L2 solution norm 5.65081
+   LInfinity solution norm 0.57747
+Cycle 2:
+   Number of active cells:       865
+   Number of degrees of freedom: 952 (by level: 4, 9, 25, 81, 289, 769, 153)
+   Starting value 0.37878
+   CG converged in 11 iterations.
+   Convergence value 1.39894e-09
+   L1 solution norm 245.153
+   L2 solution norm 9.64327
+   LInfinity solution norm 0.577873
+Cycle 3:
+   Number of active cells:       1219
+   Number of degrees of freedom: 1354 (by level: 4, 9, 25, 81, 289, 953, 277, 261)
+   Starting value 0.343729
+   CG converged in 13 iterations.
+   Convergence value 6.16552e-10
+   L1 solution norm 291.128
+   L2 solution norm 10.0806
+   LInfinity solution norm 0.579166
+Cycle 4:
+   Number of active cells:       1297
+   Number of degrees of freedom: 1446 (by level: 4, 9, 25, 81, 289, 961, 313, 349)
+   Starting value 0.33944
+   CG converged in 13 iterations.
+   Convergence value 7.0085e-10
+   L1 solution norm 298.658
+   L2 solution norm 10.13
+   LInfinity solution norm 0.57931

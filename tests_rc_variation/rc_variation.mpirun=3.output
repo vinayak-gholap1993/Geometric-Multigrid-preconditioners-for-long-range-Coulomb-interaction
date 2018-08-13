@@ -1,0 +1,136 @@
+cutoff radius: 2.00
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 2.25
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 2.50
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 2.75
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 3.00
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 3.25
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 3.50
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 3.75
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 4.00
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 4.25
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 4.50
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 4.75
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 5.00
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 5.25
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 5.50
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 5.75
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
+cutoff radius: 6.00
+Problem type is:   GaussianCharges
+Number of atoms: 2
+Cycle 0:
+   Number of active cells:       4096
+   Number of degrees of freedom: 4913 (by level: 8, 27, 125, 729, 4913)
+   L2 rhs norm 2.0136592235e+00
+   LInfinity rhs norm 3.8856967330e-01
